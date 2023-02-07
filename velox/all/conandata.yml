@@ -1,0 +1,13 @@
+sources:
+  "2023.01.18.00":
+    url: "https://github.com/jiaoew1991/velox/archive/refs/tags/v2023.01.18.tar.gz"
+    sha256: "0358efe97d1f0a93e0034cd50176229a305fa38f3fa64e8135b1e1add6477122"
+  "2023.01.19.00":
+    url: "http://localhost:8000/velox-2023.01.19.tar.gz"
+    sha256: "0f207fa814f1ff0ef4558fc1df00a2d81c0b7093aeec88848397199e69770809"
+patches:
+  "2023.01.19.00":
+    - patch_file: "patches/0002-fix-packages.patch"
+      base_path: "source_subfolder"
+      patch_description: "fix package names"
+      patch_type: "conan"
