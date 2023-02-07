@@ -11,7 +11,7 @@ index c4d716cb..00000000
 -	path = third_party/xsimd
 -	url = https://github.com/xtensor-stack/xsimd.git
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 235100db..b9594f16 100644
+index 55660235..f3cee523 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.14)
@@ -28,7 +28,7 @@ index 235100db..b9594f16 100644
  find_package(glog REQUIRED)
  
 -set_source(fmt)
--resolve_dependency(fmt)
+-resolve_dependency(fmt 8.0.1)
 +find_package(fmt REQUIRED)
  
 -find_library(EVENT event)
@@ -120,10 +120,10 @@ index 235100db..b9594f16 100644
 -add_subdirectory(third_party)
  add_subdirectory(velox)
 diff --git a/velox/CMakeLists.txt b/velox/CMakeLists.txt
-index 3f24ef51..fbda286b 100644
+index 3f24ef51..15c7419e 100644
 --- a/velox/CMakeLists.txt
 +++ b/velox/CMakeLists.txt
-@@ -74,3 +74,117 @@ endif()
+@@ -74,3 +74,118 @@ endif()
  if(${VELOX_ENABLE_SUBSTRAIT})
    add_subdirectory(substrait)
  endif()
@@ -167,7 +167,6 @@ index 3f24ef51..fbda286b 100644
 +
 +  set(bundled_tgt_full_name 
 +    ${CMAKE_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${bundled_tgt_name}${CMAKE_STATIC_LIBRARY_SUFFIX})
-+  message("tgt full name ${bundled_tgt_full_name} ${CMAKE_AR} ${CMAKE_CXX_COMPILER_AR}")
 +
 +  if (CMAKE_CXX_COMPILER_ID MATCHES "^(AppleClang|Clang|GNU)$")
 +    file(WRITE ${CMAKE_BINARY_DIR}/${bundled_tgt_name}.ar.in
@@ -229,6 +228,7 @@ index 3f24ef51..fbda286b 100644
 +  velox_hive_connector
 +  velox_memory)
 +bundle_static_library(velox velox_bundled)
++install(FILES "${CMAKE_BINARY_DIR}/libvelox_bundled.a" TYPE LIB COMPONENT "velox_bundled")
 +
 +add_library(velox_test STATIC examples/ExpressionEval.cpp)
 +target_link_libraries(velox_test
@@ -241,6 +241,7 @@ index 3f24ef51..fbda286b 100644
 +  velox_tpch_connector
 +  )
 +bundle_static_library(velox_test velox_test_bundled)
++install(FILES "${CMAKE_BINARY_DIR}/libvelox_test_bundled.a" TYPE LIB COMPONENT "velox_test_bundled")
 diff --git a/velox/common/base/tests/CMakeLists.txt b/velox/common/base/tests/CMakeLists.txt
 index 30bbac5e..a78a5c2e 100644
 --- a/velox/common/base/tests/CMakeLists.txt

@@ -1,5 +1,5 @@
 from conan.tools.microsoft import is_msvc, msvc_runtime_flag
-from conan.tools.build import can_run, check_min_cppstd
+from conan.tools.build import check_min_cppstd
 from conan.tools.scm import Version
 from conan.tools import files
 from conan import ConanFile
@@ -25,7 +25,6 @@ class VeloxConan(ConanFile):
         "fPIC": [True, False],
     }
     default_options = {"shared": False, "fPIC": True}
-    version = "2023.01.19.00"
 
     @property
     def _source_subfolder(self):
@@ -208,7 +207,9 @@ class VeloxConan(ConanFile):
             "libsodium::libsodium",
             "openssl::openssl",
             "xz_utils::xz_utils",
-            "Folly::folly",
+            "xsimd::xsimd",
+            "gtest::gtest",
+            "folly::folly",
         ]
         if (
             self.settings.os == "Linux"
@@ -226,7 +227,7 @@ class VeloxConan(ConanFile):
             and self.settings.compiler == "clang"
             and Version(self.settings.compiler.version.value) >= "11.0"
         ):
-            self.cpp_info.components["libfolly"].system_libs.append("c++abi")
+            self.cpp_info.components["libvelox"].system_libs.append("c++abi")
 
         # TODO: to remove in conan v2 once cmake_find_package_* & pkg_config generators removed
         self.cpp_info.filenames["cmake_find_package"] = "velox"
