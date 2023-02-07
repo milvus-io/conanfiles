@@ -1,0 +1,409 @@
+diff --git a/.gitmodules b/.gitmodules
+deleted file mode 100644
+index c4d716cb..00000000
+--- a/.gitmodules
++++ /dev/null
+@@ -1,6 +0,0 @@
+-[submodule "third_party/googletest"]
+-	path = third_party/googletest
+-	url = https://github.com/google/googletest.git
+-[submodule "third_party/xsimd"]
+-	path = third_party/xsimd
+-	url = https://github.com/xtensor-stack/xsimd.git
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 235100db..b9594f16 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.14)
+ cmake_policy(SET CMP0077 NEW)
+ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+ 
+-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
++# set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
+ 
+ # set the project name
+ project(velox)
+@@ -317,24 +317,23 @@ resolve_dependency(Boost 1.66.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
+ find_package(gflags COMPONENTS shared)
+ find_package(glog REQUIRED)
+ 
+-set_source(fmt)
+-resolve_dependency(fmt)
++find_package(fmt REQUIRED)
+ 
+-find_library(EVENT event)
++find_package(Libevent REQUIRED)
+ 
+-find_library(DOUBLE_CONVERSION double-conversion)
++find_package(double-conversion REQUIRED)
+ 
+ # Required for boost.
+ find_package(ZLIB)
+ 
+ if(NOT ${VELOX_BUILD_MINIMAL})
+-  find_library(LZ4 lz4)
+-  find_library(LZO lzo2)
+-  find_library(ZSTD zstd)
+-  find_library(SNAPPY snappy)
++  find_package(lz4 REQUIRED)
++  find_package(lzo REQUIRED)
++  find_package(zstd REQUIRED)
++  find_package(Snappy REQUIRED)
+ endif()
+ 
+-find_library(RE2 re2 REQUIRED)
++find_package(re2 REQUIRED)
+ 
+ if(${VELOX_BUILD_PYTHON_PACKAGE})
+   set(pybind11_SOURCE AUTO)
+@@ -343,8 +342,10 @@ if(${VELOX_BUILD_PYTHON_PACKAGE})
+ endif()
+ 
+ # Locate or build folly.
+-set_source(folly)
+-resolve_dependency(folly)
++find_package(folly REQUIRED)
++
++find_package(xsimd REQUIRED)
++find_package(GTest REQUIRED)
+ 
+ # If we use BUNDLED boost we need to set this manually AFTER folly is configured
+ if(NOT DEFINED Boost_LIBRARIES)
+@@ -353,13 +354,14 @@ if(NOT DEFINED Boost_LIBRARIES)
+ endif()
+ 
+ set(FOLLY_WITH_DEPENDENCIES
+-    ${FOLLY_LIBRARIES}
++    Folly::folly
+     ${Boost_LIBRARIES}
+-    ${DOUBLE_CONVERSION}
+-    ${EVENT}
+-    ${SNAPPY}
+-    ${CMAKE_DL_LIBS}
+-    ${FMT})
++    double-conversion
++    Libevent
++    snappy
++    fmt
++    GTest::GTest
++    ${CMAKE_DL_LIBS})
+ 
+ if(DEFINED FOLLY_BENCHMARK_STATIC_LIB)
+   set(FOLLY_BENCHMARK ${FOLLY_BENCHMARK_STATIC_LIB})
+@@ -376,11 +378,9 @@ endif()
+ 
+ include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
+ 
++set(protobuf_MODULE_COMPATIBLE ON)
+ if(NOT ${VELOX_BUILD_MINIMAL})
+-  # Locate or build protobuf.
+-  set_source(Protobuf)
+-  resolve_dependency(Protobuf 3.21.4)
+-  include_directories(${Protobuf_INCLUDE_DIRS})
++  find_package(Protobuf REQUIRED)
+ endif()
+ 
+ # GCC needs to link a library to enable std::filesystem.
+@@ -449,7 +449,12 @@ include_directories(.)
+ 
+ # TODO: Include all other installation files. For now just making sure this
+ # generates an installable makefile.
+-install(FILES velox/type/Type.h DESTINATION "include/velox")
++install(DIRECTORY velox/ 
++  DESTINATION "include/velox"
++  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
++install(DIRECTORY ${CMAKE_BINARY_DIR}/velox/ 
++  DESTINATION "include/velox"
++  FILES_MATCHING PATTERN "*.h"
++  PATTERN "*CMakeFiles*" EXCLUDE)
+ 
+-add_subdirectory(third_party)
+ add_subdirectory(velox)
+diff --git a/velox/CMakeLists.txt b/velox/CMakeLists.txt
+index 3f24ef51..fbda286b 100644
+--- a/velox/CMakeLists.txt
++++ b/velox/CMakeLists.txt
+@@ -74,3 +74,117 @@ endif()
+ if(${VELOX_ENABLE_SUBSTRAIT})
+   add_subdirectory(substrait)
+ endif()
++
++function(bundle_static_library tgt_name bundled_tgt_name)
++  list(APPEND static_libs ${tgt_name})
++
++  function(_recursively_collect_dependencies input_target)
++    set(_input_link_libraries LINK_LIBRARIES)
++    get_target_property(_input_type ${input_target} TYPE)
++    if (${_input_type} STREQUAL "INTERFACE_LIBRARY")
++      set(_input_link_libraries INTERFACE_LINK_LIBRARIES)
++    endif()
++    get_target_property(public_dependencies ${input_target} ${_input_link_libraries})
++    foreach(dependency IN LISTS public_dependencies)
++      if(TARGET ${dependency})
++        get_target_property(alias ${dependency} ALIASED_TARGET)
++        if (TARGET ${alias})
++          set(dependency ${alias})
++        endif()
++        get_target_property(_type ${dependency} TYPE)
++        if (${_type} STREQUAL "STATIC_LIBRARY")
++          list(APPEND static_libs ${dependency})
++        endif()
++
++        get_property(library_already_added
++          GLOBAL PROPERTY _${tgt_name}_static_bundle_${dependency})
++        if (NOT library_already_added)
++          set_property(GLOBAL PROPERTY _${tgt_name}_static_bundle_${dependency} ON)
++          _recursively_collect_dependencies(${dependency})
++        endif()
++      endif()
++    endforeach()
++    set(static_libs ${static_libs} PARENT_SCOPE)
++  endfunction()
++
++  _recursively_collect_dependencies(${tgt_name})
++  message("collect depends ${static_libs}")
++
++  list(REMOVE_DUPLICATES static_libs)
++
++  set(bundled_tgt_full_name 
++    ${CMAKE_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${bundled_tgt_name}${CMAKE_STATIC_LIBRARY_SUFFIX})
++  message("tgt full name ${bundled_tgt_full_name} ${CMAKE_AR} ${CMAKE_CXX_COMPILER_AR}")
++
++  if (CMAKE_CXX_COMPILER_ID MATCHES "^(AppleClang|Clang|GNU)$")
++    file(WRITE ${CMAKE_BINARY_DIR}/${bundled_tgt_name}.ar.in
++      "CREATE ${bundled_tgt_full_name}\n" )
++        
++    foreach(tgt IN LISTS static_libs)
++      file(APPEND ${CMAKE_BINARY_DIR}/${bundled_tgt_name}.ar.in
++        "ADDLIB $<TARGET_FILE:${tgt}>\n")
++    endforeach()
++    
++    file(APPEND ${CMAKE_BINARY_DIR}/${bundled_tgt_name}.ar.in "SAVE\n")
++    file(APPEND ${CMAKE_BINARY_DIR}/${bundled_tgt_name}.ar.in "END\n")
++
++    file(GENERATE
++      OUTPUT ${CMAKE_BINARY_DIR}/${bundled_tgt_name}.ar
++      INPUT ${CMAKE_BINARY_DIR}/${bundled_tgt_name}.ar.in)
++
++    set(ar_tool ${CMAKE_CXX_COMPILER_AR})
++
++    add_custom_command(
++      COMMAND ${ar_tool} -M < ${CMAKE_BINARY_DIR}/${bundled_tgt_name}.ar
++      OUTPUT ${bundled_tgt_full_name}
++      COMMENT "Bundling ${bundled_tgt_name}"
++      VERBATIM)
++  elseif(MSVC)
++    find_program(lib_tool lib)
++
++    foreach(tgt IN LISTS static_libs)
++      list(APPEND static_libs_full_names $<TARGET_FILE:${tgt}>)
++    endforeach()
++
++    add_custom_command(
++      COMMAND ${lib_tool} /NOLOGO /OUT:${bundled_tgt_full_name} ${static_libs_full_names}
++      OUTPUT ${bundled_tgt_full_name}
++      COMMENT "Bundling ${bundled_tgt_name}"
++      VERBATIM)
++  else()
++    message(FATAL_ERROR "Unknown bundle scenario!")
++  endif()
++
++  add_custom_target(bundling_target_${tgt_name} ALL DEPENDS ${bundled_tgt_full_name})
++  add_dependencies(bundling_target_${tgt_name} ${tgt_name})
++
++  add_library(${bundled_tgt_name} STATIC IMPORTED)
++  set_target_properties(${bundled_tgt_name} 
++    PROPERTIES 
++      IMPORTED_LOCATION ${bundled_tgt_full_name}
++      INTERFACE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:${tgt_name},INTERFACE_INCLUDE_DIRECTORIES>)
++  add_dependencies(${bundled_tgt_name} bundling_target_${tgt_name})
++
++endfunction()
++
++add_library(velox STATIC examples/ExpressionEval.cpp)
++target_link_libraries(velox 
++  velox_type
++  velox_vector
++  velox_exec
++  velox_exec_test_lib
++  velox_hive_connector
++  velox_memory)
++bundle_static_library(velox velox_bundled)
++
++add_library(velox_test STATIC examples/ExpressionEval.cpp)
++target_link_libraries(velox_test
++  velox
++  velox_parse_parser
++  velox_parse_utils
++  velox_duckdb_conversion
++  velox_duckdb_functions
++  velox_duckdb_allocator
++  velox_tpch_connector
++  )
++bundle_static_library(velox_test velox_test_bundled)
+diff --git a/velox/common/base/tests/CMakeLists.txt b/velox/common/base/tests/CMakeLists.txt
+index 30bbac5e..a78a5c2e 100644
+--- a/velox/common/base/tests/CMakeLists.txt
++++ b/velox/common/base/tests/CMakeLists.txt
+@@ -34,8 +34,8 @@ target_link_libraries(
+   velox_common_base
+   ${gflags_LIBRARIES}
+   glog::glog
+-  gtest
+-  gtest_main
++  GTest::gtest
++  GTest::gtest_main
+   pthread)
+ 
+ add_executable(velox_memcpy_meter Memcpy.cpp)
+diff --git a/velox/dwio/common/CMakeLists.txt b/velox/dwio/common/CMakeLists.txt
+index 58f83800..9e482f6d 100644
+--- a/velox/dwio/common/CMakeLists.txt
++++ b/velox/dwio/common/CMakeLists.txt
+@@ -63,5 +63,6 @@ target_link_libraries(
+   velox_expression
+   velox_memory
+   Boost::regex
++  protobuf::protobuf
+   ${FOLLY_WITH_DEPENDENCIES}
+   glog::glog)
+diff --git a/velox/dwio/dwrf/CMakeLists.txt b/velox/dwio/dwrf/CMakeLists.txt
+index 941bbdf8..613f69ad 100644
+--- a/velox/dwio/dwrf/CMakeLists.txt
++++ b/velox/dwio/dwrf/CMakeLists.txt
+@@ -12,8 +12,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-add_subdirectory(common)
+ add_subdirectory(proto)
++add_subdirectory(common)
+ add_subdirectory(reader)
+ if(${VELOX_BUILD_TESTING})
+   add_subdirectory(test)
+diff --git a/velox/dwio/dwrf/common/CMakeLists.txt b/velox/dwio/dwrf/common/CMakeLists.txt
+index 35dbfa96..a04e35d8 100644
+--- a/velox/dwio/dwrf/common/CMakeLists.txt
++++ b/velox/dwio/dwrf/common/CMakeLists.txt
+@@ -33,8 +33,6 @@ add_library(
+   wrap/dwrf-proto-wrapper.cpp
+   wrap/orc-proto-wrapper.cpp)
+ 
+-add_dependencies(velox_dwio_dwrf_common velox_dwio_dwrf_proto)
+-
+ target_link_libraries(
+   velox_dwio_dwrf_common velox_common_base velox_dwio_common
+   velox_dwio_common_compression velox_dwio_dwrf_proto velox_caching)
+diff --git a/velox/dwio/dwrf/proto/CMakeLists.txt b/velox/dwio/dwrf/proto/CMakeLists.txt
+index 02ff2c8d..6ad0803d 100644
+--- a/velox/dwio/dwrf/proto/CMakeLists.txt
++++ b/velox/dwio/dwrf/proto/CMakeLists.txt
+@@ -13,37 +13,45 @@
+ # limitations under the License.
+ 
+ # Set up Proto
+-file(
+-  GLOB PROTO_FILES
+-  RELATIVE ${PROJECT_SOURCE_DIR}
+-  ${CMAKE_CURRENT_SOURCE_DIR}/*.proto)
+-foreach(PROTO ${PROTO_FILES})
+-  get_filename_component(PROTO_DIR ${PROTO} DIRECTORY)
+-  get_filename_component(PROTO_NAME ${PROTO} NAME_WE)
+-  list(APPEND PROTO_SRCS
+-       "${PROJECT_BINARY_DIR}/${PROTO_DIR}/${PROTO_NAME}.pb.cc")
+-  list(APPEND PROTO_HDRS
+-       "${PROJECT_BINARY_DIR}/${PROTO_DIR}/${PROTO_NAME}.pb.h")
+-  list(APPEND PROTO_FILES_FULL
+-       "${PROJECT_SOURCE_DIR}/${PROTO_DIR}/${PROTO_NAME}.proto")
+-endforeach()
+-set(PROTO_OUTPUT_FILES ${PROTO_HDRS} ${PROTO_SRCS})
+-set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
++# file(
++#   GLOB PROTO_FILES
++#   RELATIVE ${PROJECT_SOURCE_DIR}
++#   ${CMAKE_CURRENT_SOURCE_DIR}/*.proto)
++# foreach(PROTO ${PROTO_FILES})
++#   get_filename_component(PROTO_DIR ${PROTO} DIRECTORY)
++#   get_filename_component(PROTO_NAME ${PROTO} NAME_WE)
++#   list(APPEND PROTO_SRCS
++#        "${PROJECT_BINARY_DIR}/${PROTO_DIR}/${PROTO_NAME}.pb.cc")
++#   list(APPEND PROTO_HDRS
++#        "${PROJECT_BINARY_DIR}/${PROTO_DIR}/${PROTO_NAME}.pb.h")
++#   list(APPEND PROTO_FILES_FULL
++#        "${PROJECT_SOURCE_DIR}/${PROTO_DIR}/${PROTO_NAME}.proto")
++# endforeach()
++# set(PROTO_OUTPUT_FILES ${PROTO_HDRS} ${PROTO_SRCS})
++# set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
++#
++# add_custom_command(
++#   OUTPUT ${PROTO_OUTPUT_FILES}
++#   COMMAND
++#     ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/ --proto_path
++#     ${Protobuf_INCLUDE_DIRS} --cpp_out ${CMAKE_BINARY_DIR} ${PROTO_FILES_FULL}
++#   DEPENDS ${Protobuf_PROTOC_EXECUTABLE}
++#   COMMENT "Running PROTO compiler"
++#   VERBATIM)
++# add_custom_target(dwio_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
+ 
+-add_custom_command(
+-  OUTPUT ${PROTO_OUTPUT_FILES}
+-  COMMAND
+-    ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/ --proto_path
+-    ${Protobuf_INCLUDE_DIRS} --cpp_out ${CMAKE_BINARY_DIR} ${PROTO_FILES_FULL}
+-  DEPENDS ${Protobuf_PROTOC_EXECUTABLE}
+-  COMMENT "Running PROTO compiler"
+-  VERBATIM)
+-add_custom_target(dwio_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
++# add_library(velox_dwio_dwrf_proto ${PROTO_HDRS} ${PROTO_SRCS})
+ 
+-add_library(velox_dwio_dwrf_proto ${PROTO_HDRS} ${PROTO_SRCS})
++set(PROTO_FILES dwrf_proto.proto orc_proto.proto)
++add_library(velox_dwio_dwrf_proto ${PROTO_HDRS} ${PROTO_FILES})
+ 
+ # Access generated proto file with.
+ #
+ # #include "velox/dwio/dwrf/proto/dwrf_proto.pb.h"
+-target_link_libraries(velox_dwio_dwrf_proto ${Protobuf_LIBRARIES})
+-target_include_directories(velox_dwio_dwrf_proto PUBLIC ${PROJECT_BINARY_DIR})
++target_link_libraries(velox_dwio_dwrf_proto PUBLIC protobuf::protobuf)
++
++target_include_directories(velox_dwio_dwrf_proto 
++  PUBLIC ${PROJECT_BINARY_DIR})
++
++protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS TARGET velox_dwio_dwrf_proto)
++protobuf_generate(LANGUAGE cpp TARGET velox_dwio_dwrf_proto PROTOS ${PROTO_FILES})
+diff --git a/velox/expression/type_calculation/TypeCalculation.yy b/velox/expression/type_calculation/TypeCalculation.yy
+index b494fad9..8eade76f 100644
+--- a/velox/expression/type_calculation/TypeCalculation.yy
++++ b/velox/expression/type_calculation/TypeCalculation.yy
+@@ -5,7 +5,7 @@
+ %require "3.0.4"
+ %language "C++"
+ 
+-%define parser_class_name {Parser}
++%define api.parser.class {Parser}
+ %define api.namespace {facebook::velox::expression::calculate}
+ %define api.value.type variant
+ %parse-param {Scanner* scanner}
+diff --git a/velox/functions/lib/CMakeLists.txt b/velox/functions/lib/CMakeLists.txt
+index 5a2a96b1..baf09c6a 100644
+--- a/velox/functions/lib/CMakeLists.txt
++++ b/velox/functions/lib/CMakeLists.txt
+@@ -11,7 +11,7 @@
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+-find_library(RE2 re2 REQUIRED)
++find_package(re2 REQUIRED)
+ 
+ add_library(velox_is_null_functions IsNull.cpp)
+ 
+@@ -32,7 +32,7 @@ add_library(
+   Re2Functions.cpp
+   StringEncodingUtils.cpp)
+ 
+-target_link_libraries(velox_functions_lib velox_vector ${RE2}
++target_link_libraries(velox_functions_lib velox_vector re2::re2
+                       ${FOLLY_WITH_DEPENDENCIES})
+ 
+ add_subdirectory(string)
