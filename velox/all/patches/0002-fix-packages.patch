@@ -11,7 +11,7 @@ index c4d716cb..00000000
 -	path = third_party/xsimd
 -	url = https://github.com/xtensor-stack/xsimd.git
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 55660235..f3cee523 100644
+index 55660235..dba891a7 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.14)
@@ -104,15 +104,17 @@ index 55660235..f3cee523 100644
  endif()
  
  # GCC needs to link a library to enable std::filesystem.
-@@ -449,7 +449,12 @@ include_directories(.)
+@@ -447,9 +447,12 @@ include(CTest) # include after project() but before add_subdirectory()
  
- # TODO: Include all other installation files. For now just making sure this
- # generates an installable makefile.
+ include_directories(.)
+ 
+-# TODO: Include all other installation files. For now just making sure this
+-# generates an installable makefile.
 -install(FILES velox/type/Type.h DESTINATION "include/velox")
 +install(DIRECTORY velox/ 
 +  DESTINATION "include/velox"
 +  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
-+install(DIRECTORY ${CMAKE_BINARY_DIR}/velox/ 
++install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/velox/ 
 +  DESTINATION "include/velox"
 +  FILES_MATCHING PATTERN "*.h"
 +  PATTERN "*CMakeFiles*" EXCLUDE)
