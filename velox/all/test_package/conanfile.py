@@ -16,7 +16,7 @@ class TestPackageConan(ConanFile):
 
     def generate(self):
         tc = CMakeToolchain(self)
-        tc.variables["VELOX_VERSION"] = self.dependencies["velox"].ref.version
+        # tc.variables["VELOX_VERSION"] = self.dependencies["velox"].ref.version
         tc.generate()
 
     def layout(self):
