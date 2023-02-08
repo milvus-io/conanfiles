@@ -376,7 +376,7 @@ index 02ff2c8d..6ad0803d 100644
 +protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS TARGET velox_dwio_dwrf_proto)
 +protobuf_generate(LANGUAGE cpp TARGET velox_dwio_dwrf_proto PROTOS ${PROTO_FILES})
 diff --git a/velox/expression/type_calculation/CMakeLists.txt b/velox/expression/type_calculation/CMakeLists.txt
-index 75d0d6f9..43d13cf2 100644
+index 75d0d6f9..dceccb83 100644
 --- a/velox/expression/type_calculation/CMakeLists.txt
 +++ b/velox/expression/type_calculation/CMakeLists.txt
 @@ -11,7 +11,8 @@
@@ -389,15 +389,6 @@ index 75d0d6f9..43d13cf2 100644
  bison_target(
    TypeCalculationParser TypeCalculation.yy
    ${CMAKE_CURRENT_BINARY_DIR}/TypeCalculation.yy.cc
-@@ -24,7 +25,7 @@ flex_target(
- add_flex_bison_dependency(TypeCalculationScanner TypeCalculationParser)
- 
- include_directories(${PROJECT_BINARY_DIR})
--include_directories(${FLEX_INCLUDE_DIRS})
-+include_directories(${flex_INCLUDE_DIRS})
- add_library(velox_type_calculation ${BISON_TypeCalculationParser_OUTPUTS}
-                                    ${FLEX_TypeCalculationScanner_OUTPUTS})
- target_link_libraries(velox_type_calculation velox_common_base)
 diff --git a/velox/expression/type_calculation/TypeCalculation.yy b/velox/expression/type_calculation/TypeCalculation.yy
 index b494fad9..8eade76f 100644
 --- a/velox/expression/type_calculation/TypeCalculation.yy
