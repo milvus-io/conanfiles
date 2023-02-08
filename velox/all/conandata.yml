@@ -1,9 +1,9 @@
 sources:
-  '2023.02.07.00':
+  '2023.02.07.01':
     url: 'https://github.com/jiaoew1991/velox/archive/refs/tags/v2023.02.07.tar.gz'
     sha256: '30d97d515cd7b7e224b155cbe5a2e0959d7e51de7f267ff815adea778c795481'
 patches:
-  '2023.02.07.00':
+  '2023.02.07.01':
     - patch_file: 'patches/0002-fix-packages.patch'
       base_path: 'source_subfolder'
       patch_description: 'fix package names'
