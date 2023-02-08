@@ -25,6 +25,7 @@ class VeloxConan(ConanFile):
         "fPIC": [True, False],
     }
     default_options = {"shared": False, "fPIC": True}
+    tool_requires = "m4/1.4.19", "bison/3.5.3", "flex/2.6.4"
 
     @property
     def _source_subfolder(self):
@@ -77,10 +78,12 @@ class VeloxConan(ConanFile):
         self.requires("snappy/1.1.9")
         self.requires("zlib/1.2.13")
         self.requires("zstd/1.5.2")
+        self.requires("re2/20220601")
         self.requires("libsodium/cci.20220430")
         self.requires("openssl/1.1.1q")
         self.requires("xz_utils/5.2.5")
         self.requires("protobuf/3.21.9")
+        self.requires("flex/2.6.4")
 
     @property
     def _required_boost_components(self):
@@ -158,7 +161,6 @@ class VeloxConan(ConanFile):
             tc.variables["MSVC_ENABLE_ALL_WARNINGS"] = False
             tc.variables["MSVC_USE_STATIC_RUNTIME"] = "MT" in msvc_runtime_flag(self)
         tc.variables["VELOX_BUILD_TESTING"] = False
-
         tc.generate()
 
         deps = CMakeDeps(self)
@@ -204,6 +206,7 @@ class VeloxConan(ConanFile):
             "snappy::snappy",
             "zlib::zlib",
             "zstd::zstd",
+            "re2::re2",
             "libsodium::libsodium",
             "openssl::openssl",
             "xz_utils::xz_utils",
