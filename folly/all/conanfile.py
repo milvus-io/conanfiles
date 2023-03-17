@@ -25,7 +25,7 @@ class FollyConan(ConanFile):
         "fPIC": [True, False],
         "use_sse4_2": [True, False],
     }
-    default_options = {"shared": False, "fPIC": True, "use_sse4_2": False}
+    default_options = {"shared": False, "fPIC": True, "use_sse4_2": True}
 
     @property
     def _source_subfolder(self):
@@ -55,8 +55,6 @@ class FollyConan(ConanFile):
 
     def export_sources(self):
         self.copy("CMakeLists.txt")
-        for patch in self.conan_data.get("patches", {}).get(self.version, []):
-            self.copy(patch["patch_file"])
 
     def config_options(self):
         if self.settings.os == "Windows":

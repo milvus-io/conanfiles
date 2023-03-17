@@ -51,8 +51,9 @@ jobs:
 
           conan remote add default-conan-local https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local 
           cd ${{ github.event.inputs.package }}/all
+
           if [[ `gcc -v 2>&1 | sed -n 's/.*\(--with-default-libstdcxx-abi\)=\(\w*\).*/\2/p'` == "gcc4" ]]; then
-            conan create . ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@milvus/dev --build=missing
+            conan create . ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@milvus/dev --build=missing 
           else 
             conan create . ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@milvus/dev --build=missing -s compiler.libcxx=libstdc++11 
           fi 

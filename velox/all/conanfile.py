@@ -46,8 +46,6 @@ class VeloxConan(ConanFile):
 
     def export_sources(self):
         self.copy("CMakeLists.txt")
-        for patch in self.conan_data.get("patches", {}).get(self.version, []):
-            self.copy(patch["patch_file"])
 
     def config_options(self):
         if self.settings.os == "Windows":
@@ -64,8 +62,8 @@ class VeloxConan(ConanFile):
                 pass
 
     def requirements(self):
-        self.requires("folly/2022.10.31.00@milvus/dev")
-        self.requires("boost/1.80.0")
+        self.requires("folly/2023.02.24milvus/dev")
+        self.requires("boost/1.81.0")
         self.requires("bzip2/1.0.8")
         self.requires("double-conversion/3.2.1")
         self.requires("xsimd/9.0.1")
