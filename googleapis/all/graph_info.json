@@ -1,0 +1,50 @@
+{
+ "options": [
+  [
+   "fPIC",
+   "True"
+  ],
+  [
+   "shared",
+   "False"
+  ],
+  [
+   "protobuf:debug_suffix",
+   "True"
+  ],
+  [
+   "protobuf:fPIC",
+   "True"
+  ],
+  [
+   "protobuf:lite",
+   "False"
+  ],
+  [
+   "protobuf:shared",
+   "False"
+  ],
+  [
+   "protobuf:with_rtti",
+   "True"
+  ],
+  [
+   "protobuf:with_zlib",
+   "True"
+  ],
+  [
+   "zlib:fPIC",
+   "True"
+  ],
+  [
+   "zlib:shared",
+   "False"
+  ]
+ ],
+ "root": {
+  "name": "googleapis",
+  "version": "cci.20221108",
+  "user": null,
+  "channel": null
+ }
+}
