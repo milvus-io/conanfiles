@@ -1,0 +1,4 @@
+sources:
+  "7.5.0":
+    url: "https://github.com/milvus-io/azure-storage-cpp/archive/refs/tags/v7.5.0.tar.gz"
+    sha256: "7084ea566ecaf71d0862d84c4a32cec73052787f0aed9d17a5120e6b0d09e040"
