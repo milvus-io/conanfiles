@@ -59,8 +59,8 @@ jobs:
           fi
           EOF
           chmod +x build.sh
-          docker run -u ${{env.UID}}:${{env.GID}} -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/home/milvus/.conan:delegated -v $(pwd):/work:delegated -w /work milvusdb/milvus-env:${{ matrix.os }}-20230830-30ca458 bash -c /work/build.sh
+          docker run -u ${{env.UID}}:${{env.GID}} -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/.conan:delegated -v $(pwd):/work:delegated -w /work milvusdb/milvus-env:${{ matrix.os }}-20230830-30ca458 bash -c /work/build.sh
       - name: Upload
         run: |
-          docker run -u ${{env.UID}}:${{env.GID}} -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/home/milvus/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20230830-30ca458 conan user -p ${{ secrets.JFROG_PASSWORD }} -r default-conan-local ${{ secrets.JFROG_USERNAME }}
-          docker run -u ${{env.UID}}:${{env.GID}} -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/home/milvus/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20230830-30ca458 conan upload ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@milvus/dev -r default-conan-local --all
+          docker run -u ${{env.UID}}:${{env.GID}} -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20230830-30ca458 conan user -p ${{ secrets.JFROG_PASSWORD }} -r default-conan-local ${{ secrets.JFROG_USERNAME }}
+          docker run -u ${{env.UID}}:${{env.GID}} -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20230830-30ca458 conan upload ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@milvus/dev -r default-conan-local --all
