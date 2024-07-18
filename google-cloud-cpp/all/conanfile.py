@@ -177,13 +177,13 @@ class GoogleCloudCppConan(ConanFile):
         rmdir(self, path=os.path.join(self.package_folder, "lib", "pkgconfig"))
 
     def _add_proto_component(self, component):
-        PROTOS_SHARED_REQUIRES=["googleapis::googleapis", "grpc::grpc++", "grpc::_grpc", "protobuf::libprotobuf"]
+        PROTOS_SHARED_REQUIRES=["googleapis::googleapis", "grpc::grpc++", "protobuf::libprotobuf"]
         self.cpp_info.components[component].requires = PROTOS_SHARED_REQUIRES
         self.cpp_info.components[component].libs = [f"google_cloud_cpp_{component}"]
         self.cpp_info.components[component].names["pkg_config"] = f"google_cloud_cpp_{component}"
 
     def _add_grpc_component(self, component, protos, extra=None):
-        SHARED_REQUIRES=["grpc_utils", "common", "grpc::grpc++", "grpc::_grpc", "protobuf::libprotobuf", "abseil::absl_memory"]
+        SHARED_REQUIRES=["grpc_utils", "common", "grpc::grpc++", "protobuf::libprotobuf", "abseil::absl_memory"]
         self.cpp_info.components[component].requires = (extra or []) + [protos] + SHARED_REQUIRES
         self.cpp_info.components[component].libs = [f"google_cloud_cpp_{component}"]
         self.cpp_info.components[component].names["pkg_config"] = f"google_cloud_cpp_{component}"
