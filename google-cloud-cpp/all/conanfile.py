@@ -203,7 +203,7 @@ class GoogleCloudCppConan(ConanFile):
         for component in GRPC_UTILS_REQUIRED_PROTOS:
             self._add_proto_component(component)
 
-        self.cpp_info.components["grpc_utils"].requires = GRPC_UTILS_REQUIRED_PROTOS + ["common", "abseil::absl_function_ref", "abseil::absl_memory", "abseil::absl_time", "grpc::grpc++", "grpc::_grpc"]
+        self.cpp_info.components["grpc_utils"].requires = GRPC_UTILS_REQUIRED_PROTOS + ["common", "abseil::absl_function_ref", "abseil::absl_memory", "abseil::absl_time", "grpc::grpc++"]
         self.cpp_info.components["grpc_utils"].libs = ["google_cloud_cpp_grpc_utils"]
         self.cpp_info.components["grpc_utils"].names["pkg_config"] = "google_cloud_cpp_grpc_utils"
 
