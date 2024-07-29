@@ -113,8 +113,12 @@ def parse_proto_libraries(filename, source_folder, error):
         proto_library.srcs.append(proto_path)
 
     def parsing_deps(line):
+        # Remove any comments
+        line = line.split('#', 1)[0].strip()
         line = line.strip(",").strip("\"")
-        if line.startswith("@com_google_protobuf//:"):
+        if line == '':
+            pass
+        elif line.startswith("@com_google_protobuf//:"):
             proto_library.deps.add("protobuf::libprotobuf")
         elif line.startswith("@com_google_googleapis//"):
             proto_library.deps.add(line[len("@com_google_googleapis"):])
@@ -131,7 +135,7 @@ def parse_proto_libraries(filename, source_folder, error):
         line = line.strip(",").strip("\"")
         collection.append(line)
 
-    with open(filename, 'r', encoding="utf-8") as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         action = None
         parsing_variable = None
         variables = {}

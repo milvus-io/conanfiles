@@ -1,14 +1,62 @@
-from os import path
 from conan import ConanFile
 from conan.errors import ConanInvalidConfiguration
+from conan.tools.apple import fix_apple_shared_install_name
 from conan.tools.build import cross_building
 from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
-from conan.tools.files import apply_conandata_patches, export_conandata_patches
-from conan.tools.files import copy, get, load, rename, rmdir, collect_libs
+from conan.tools.files import copy, get, replace_in_file, rmdir
+from conan.tools.microsoft import is_msvc_static_runtime, is_msvc
 from conan.tools.scm import Version
-from conan.tools.apple import fix_apple_shared_install_name
+import os
+import textwrap
 
-required_conan_version = ">=1.55.0"
+required_conan_version = ">=1.53.0"
+
+# Maps Conan's settings.arch to the corresponding OpenBLAS TARGET:
+conan_arch_to_openblas_target = {
+    "x86": "SANDYBRIDGE",  # Sandy bridge was discontinued in September of 2013,
+    "x86_64": "SANDYBRIDGE",  # supporting older CPUs is a performance trade-off
+    "ppc32be": None,  # TODO: OpenBLAS has POWER4, POWER5, POWER6, POWER7,
+    "ppc32": None,  #         POWER8, POWER9, POWER10, PPCG4, PPC970, PPC970MP,
+    "ppc64le": None,  #       PPC440, PPC440FP2, CELL
+    "ppc64": None,
+    "armv4": None,  # Not supported by OpenBLAS
+    "armv4i": None,  # Not supported by OpenBLAS
+    "armv5el": "ARMV5",
+    "armv5hf": "ARMV5",
+    "armv6": "ARMV6",
+    "armv7": "ARMV7",
+    "armv7hf": "ARMV7",
+    "armv7s": "ARMV7",
+    "armv7k": "ARMV7",
+    "armv8": "ARMV8",
+    "armv8_32": "ARMV7",  # No 32-bit ARMv8 TARGET in OpenBLAS
+    "armv8.3": "ARMV8",
+    "arm64ec": "ARMV8",
+    "sparc": None,  # TODO: OpenBLAS has SPARC, SPARCV7
+    "sparcv9": None,
+    "mips": None,  # TODO: OpenBLAS has P5600, MIPS1004K and MIPS24K
+    "mips64": "MIPS64_GENERIC",
+    "avr": None,  # Not supported by OpenBLAS
+    "s390": None,  # Not supported by OpenBLAS
+    "s390x": None,  # Not supported by OpenBLAS
+    "asm.js": "GENERIC",  # TODO: ?
+    "wasm": "GENERIC",  # TODO: ?
+    "sh4le": None,  # Not supported by OpenBLAS
+    "e2k-v2": "E2K",
+    "e2k-v3": "E2K",
+    "e2k-v4": "E2K",
+    "e2k-v5": "E2K",
+    "e2k-v6": "E2K",
+    "e2k-v7": "E2K",
+    "riscv64": "RISCV64_GENERIC",
+    "riscv32": None,  # Not supported by OpenBLAS
+    "xtensalx6": None,  # Not supported by OpenBLAS
+    "xtensalx106": None,  # Not supported by OpenBLAS
+    "xtensalx7": None,  # Not supported by OpenBLAS
+}
+
+# Taken from OpenBLAS TargetList.txt
+available_openblas_targets = ["P2", "KATMAI", "COPPERMINE", "NORTHWOOD", "PRESCOTT", "BANIAS", "YONAH", "CORE2", "PENRYN", "DUNNINGTON", "NEHALEM", "SANDYBRIDGE", "HASWELL", "SKYLAKEX", "ATOM", "COOPERLAKE", "SAPPHIRERAPIDS", "ATHLON", "OPTERON", "OPTERON_SSE3", "BARCELONA", "SHANGHAI", "ISTANBUL", "BOBCAT", "BULLDOZER", "PILEDRIVER", "STEAMROLLER", "EXCAVATOR", "ZEN", "SSE_GENERIC", "VIAC3", "NANO", "POWER4", "POWER5", "POWER6", "POWER7", "POWER8", "POWER9", "POWER10", "PPCG4", "PPC970", "PPC970MP", "PPC440", "PPC440FP2", "CELL", "P5600", "MIPS1004K", "MIPS24K", "MIPS64_GENERIC", "SICORTEX", "LOONGSON3A", "LOONGSON3B", "I6400", "P6600", "I6500", "ITANIUM2", "SPARC", "SPARCV7", "CORTEXA15", "CORTEXA9", "ARMV7", "ARMV6", "ARMV5", "ARMV8", "CORTEXA53", "CORTEXA57", "CORTEXA72", "CORTEXA73", "CORTEXA76", "CORTEXA510", "CORTEXA710", "CORTEXX1", "CORTEXX2", "NEOVERSEN1", "NEOVERSEV1", "NEOVERSEN2", "CORTEXA55", "EMAG8180", "FALKOR", "THUNDERX", "THUNDERX2T99", "TSV110", "THUNDERX3T110", "VORTEX", "A64FX", "ARMV8SVE", "FT2000", "ZARCH_GENERIC", "Z13", "Z14", "RISCV64_GENERIC", "RISCV64_ZVL128B", "C910V", "x280", "RISCV64_ZVL256B", "LOONGSONGENERIC", "LOONGSON3R5", "LOONGSON2K1000", "E2K", "EV4", "EV5", "EV6", "CSKY", "CK860FV"]
 
 
 class OpenblasConan(ConanFile):
@@ -18,253 +66,216 @@ class OpenblasConan(ConanFile):
     url = "https://github.com/conan-io/conan-center-index"
     homepage = "https://www.openblas.net"
     topics = ("blas", "lapack")
+    package_type = "library"
     settings = "os", "arch", "compiler", "build_type"
     options = {
         "shared": [True, False],
         "fPIC": [True, False],
         "build_lapack": [True, False],
+        "build_relapack": [True, False],
         "use_thread": [True, False],
-        "use_openmp": [True, False],
+        "use_locking": [True, False],
         "dynamic_arch": [True, False],
-        "with_avx512": [True, False],
+        "target": [None] + available_openblas_targets
     }
     default_options = {
         "shared": False,
         "fPIC": True,
-        "build_lapack": False,
+        "build_lapack": True,
+        "build_relapack": False,
         "use_thread": True,
-        "use_openmp": False,
+        "use_locking": True,
         "dynamic_arch": False,
-        "with_avx512": False,
+        "target": None,
     }
-    package_type = "library"
+    options_description = {
+        "build_lapack": "Build LAPACK and LAPACKE",
+        "build_relapack": "Build with ReLAPACK (recursive implementation of several LAPACK functions on top of standard LAPACK)",
+        "use_thread": "Enable threads support",
+        "use_locking": "Use locks even in single-threaded builds to make them callable from multiple threads",
+        "dynamic_arch": "Include support for multiple CPU targets, with automatic selection at runtime (x86/x86_64, aarch64 or ppc only)",
+        "target": "OpenBLAS TARGET variable (see TargetList.txt)",
+    }
     short_paths = True
-
-    def _fortran_runtime(self, fortran_id):
-        if self.settings.os in ["Linux", "FreeBSD"]:
-            if fortran_id == "GNU":
-                if self.settings.compiler == "gcc":
-                    # Compiler vs. gfortran runtime ver.: 5,6: 3, 7: 4, >=8: 5
-                    if Version(self.settings.compiler.version).major >= "5":
-                        return "gfortran"
-                if self.settings.compiler == "clang":
-                    if Version(self.settings.compiler.version).major > "8":
-                        return "gfortran"  # Runtime version gfortran5
-
-        self.output.warning(
-            f"Unable to select runtime for Fortran {fortran_id} "
-            f"and C++ {self.settings.compiler} {self.settings.compiler.version}")
-        return None
-
-    @property
-    def _openmp_runtime(self):
-        if self.settings.os in ["Linux", "FreeBSD"]:
-            if self.settings.compiler == "gcc":
-                if Version(self.settings.compiler.version).major > "7":
-                    return "gomp"
-            if self.settings.compiler == "clang":
-                if Version(self.settings.compiler.version).major > "8":
-                    return "omp"
-        return None
 
     @property
     def _fortran_compiler(self):
         comp_exe = self.conf.get("tools.build:compiler_executables")
-        if comp_exe and 'fortran' in comp_exe:
+        if comp_exe and "fortran" in comp_exe:
             return comp_exe["fortran"]
         return None
-
-    def export(self):
-        conan_fortran = path.join(self.export_folder, "conan_fortran")
-        copy(self, "fortran_helper.cmake", self.recipe_folder, conan_fortran)
-        rename(self, path.join(conan_fortran, "fortran_helper.cmake"),
-               path.join(conan_fortran, "CMakeLists.txt"))
-
-    def export_sources(self):
-        export_conandata_patches(self)
 
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
-
-        # Build LAPACK by default if possible w/o Fortran compiler
-        if Version(self.version) >= "0.3.21":
-            self.options.build_lapack = True
+        # When no Fortran compiler is available, OpenBLAS builds LAPACK from an f2c-converted copy of LAPACK unless the NO_LAPACK option is specified.
+        # This is not available before v0.3.21.
+        if Version(self.version) < "0.3.21":
+            self.options.build_lapack = False
+            self.options.build_relapack = False
 
     def configure(self):
         if self.options.shared:
             self.options.rm_safe("fPIC")
 
-    def layout(self):
-        cmake_layout(self, src_folder="src")
-
-    def package_id(self):
-        if self.info.options.build_lapack:
-            # Capture Fortran compiler in package id using CMake
-            # Note: It is incomplete before CMake 3.24
-            import tempfile
-            import io
-            f_compiler = self._fortran_compiler
-
-            if not f_compiler and Version(self.version) >= "0.3.21":
-                self.output.info("Building LAPACK without Fortran")
-                return
-
-            conan_fortran = path.join(self.recipe_folder, 'conan_fortran')
-            run_cmd = f"cmake {conan_fortran} --log-level=ERROR"
-
-            if f_compiler:
-                run_cmd += f" -DCMAKE_Fortran_COMPILER={f_compiler}"
-
-            with tempfile.TemporaryDirectory() as tmpdir:
-                self.run(run_cmd, io.StringIO(), cwd=tmpdir)
-                fortran_id = load(self, path.join(tmpdir, "FORTRAN_COMPILER"))
-                if fortran_id == "0":
-                    self.output.warning("No or unknown fortran compiler was used.")
-                    f_compiler = True
-                else:
-                    self.output.info(f"Fortran compiler: {fortran_id}")
-                    f_compiler = fortran_id
-
-            self.info.options.build_lapack = f_compiler
+        # When cross-compiling, OpenBLAS requires explicitly setting TARGET
+        if cross_building(self, skip_x64_x86=True) and not self.options.target:
+            # Try inferring the target from settings.arch
+            target = conan_arch_to_openblas_target.get(str(self.settings.arch))
+            if target:
+                self.output.warning(f'Setting OpenBLAS TARGET={target} based on settings.arch. This may result in suboptimal performance. Set the "{self.name}/*:target=XXX" option to silence this warning.')
+                self.options.target = target
 
     def validate(self):
-        if cross_building(self, skip_x64_x86=True):
-            raise ConanInvalidConfiguration("Cross-building not implemented")
+        if Version(self.version) < "0.3.24" and self.settings.arch == "armv8":
+            # OpenBLAS fails to detect the appropriate target architecture for armv8 for versions < 0.3.24, as it matches the 32 bit variant instead of 64.
+            # This was fixed in https://github.com/OpenMathLib/OpenBLAS/pull/4142, which was introduced in 0.3.24.
+            # This would be a reasonably trivial hotfix to backport.
+            raise ConanInvalidConfiguration("armv8 builds are not currently supported for versions lower than 0.3.24. Contributions to support this are welcome.")
 
-        if self.options.use_thread and self.options.use_openmp:
-            raise ConanInvalidConfiguration("Both 'use_thread=True' and 'use_openmp=True' are not allowed")
+        if self.options.build_relapack:
+            if not self.options.build_lapack:
+                raise ConanInvalidConfiguration(f'"{self.name}/*:build_relapack=True" option requires "{self.name}/*:build_lapack=True"')
+            if self.settings.compiler not in ["gcc", "clang"]:
+                # ld: unknown option: --allow-multiple-definition on apple-clang
+                raise ConanInvalidConfiguration(f'"{self.name}/*:build_relapack=True" option is only supported for GCC and Clang')
 
-        if self.settings.os == "Windows" and self.options.build_lapack and self.options.use_openmp:
-            # In OpenBLAS cmake/system.cmake: Disable -fopenmp for LAPACK Fortran codes on Windows
-            self.output.warning("OpenMP is disabled on LAPACK targets on Windows")
+    def validate_build(self):
+        if Version(self.version) < "0.3.22" and cross_building(self, skip_x64_x86=True):
+            # OpenBLAS CMake builds did not support some of the cross-compilation targets in 0.3.20/21 and earlier.
+            # This was fixed in https://github.com/OpenMathLib/OpenBLAS/pull/3714 and https://github.com/OpenMathLib/OpenBLAS/pull/3958
+            raise ConanInvalidConfiguration(f"Cross-building is not supported for {self.name}/0.3.21 and earlier.")
 
-    def build_requirements(self):
-        if self.options.build_lapack and self.settings.os == "Windows":
-            self.tool_requires("ninja/1.11.1")
+        # If we're cross-compiling, and the user didn't provide the target, and
+        # we couldn't infer the target from settings.arch, fail
+        if cross_building(self, skip_x64_x86=True) and not self.options.target:
+            raise ConanInvalidConfiguration(f'Could not determine OpenBLAS TARGET. Please set the "{self.name}/*:target=XXX" option.')
 
     def source(self):
         get(self, **self.conan_data["sources"][self.version], strip_root=True)
 
-    def generate(self):
+    def layout(self):
+        cmake_layout(self, src_folder="src")
 
-        conf_generator = self.conf.get("tools.cmake.cmaketoolchain:generator")
-        ninja_conditions = \
-            self.settings.os == "Windows" and self.options.build_lapack \
-            and (not conf_generator or "Visual Studio" in conf_generator)
-        generator = "Ninja" if ninja_conditions else None
-        if ninja_conditions:
-            self.output.warning(
-                "The Visual Studio generator is not compatible with OpenBLAS "
-                "when building LAPACK. Overwriting generator to 'Ninja'")
-        tc = CMakeToolchain(self, generator=generator)
+    def generate(self):
+        tc = CMakeToolchain(self)
+        tc.variables["BUILD_STATIC_LIBS"] = not self.options.shared
+        tc.variables["BUILD_SHARED_LIBS"] = self.options.shared
+        tc.variables["BUILD_TESTING"] = False
 
         tc.variables["NOFORTRAN"] = not self.options.build_lapack
-        if self.options.build_lapack:
-            # This checks explicit user-specified fortran compiler
-            if not self._fortran_compiler:
-                if Version(self.version) < "0.3.21":
-                    self.output.warning(
-                        "Building with LAPACK support requires a Fortran compiler.")
-                else:
-                    tc.variables["C_LAPACK"] = True
-                    tc.variables["NOFORTRAN"] = True
-                    self.output.info(
-                        "Building LAPACK without Fortran compiler")
+        # This checks explicit user-specified fortran compiler
+        if self.options.build_lapack and not self._fortran_compiler:
+            if Version(self.version) < "0.3.21":
+                self.output.warning("Building with LAPACK support requires a Fortran compiler.")
+            else:
+                tc.variables["C_LAPACK"] = True
+                tc.variables["NOFORTRAN"] = True
+                self.output.info("Building LAPACK without a Fortran compiler")
 
         tc.variables["BUILD_WITHOUT_LAPACK"] = not self.options.build_lapack
+        tc.variables["BUILD_RELAPACK"] = self.options.build_relapack
+
         tc.variables["DYNAMIC_ARCH"] = self.options.dynamic_arch
         tc.variables["USE_THREAD"] = self.options.use_thread
-        tc.variables["USE_OPENMP"] = self.options.use_openmp
+        tc.variables["USE_LOCKING"] = self.options.use_locking
 
-        # Required for safe concurrent calls to OpenBLAS routines
-        tc.variables["USE_LOCKING"] = not self.options.use_thread
+        tc.variables["MSVC_STATIC_CRT"] = is_msvc_static_runtime(self)
 
-        # don't, may lie to consumer, /MD or /MT is managed by conan
-        tc.variables["MSVC_STATIC_CRT"] = False
+        # This is a workaround to add the libm dependency on linux,
+        # which is required to successfully compile on older gcc versions.
+        tc.variables["ANDROID"] = self.settings.os in ["Linux", "Android"]
 
-        tc.variables["NO_AVX512"] = not self.options.with_avx512
+        if self.options.target:
+            tc.cache_variables["TARGET"] = self.options.target
 
+        tc.cache_variables["CMAKE_POLICY_DEFAULT_CMP0077"] = "NEW"
         tc.generate()
 
+    def _patch_sources(self):
+        if Version(self.version) <= "0.3.15":
+            replace_in_file(self, os.path.join(self.source_folder, "cmake", "utils.cmake"),
+                "set(obj_defines ${defines_in})", textwrap.dedent("""\
+                 set(obj_defines ${defines_in})
+
+                 list(FIND obj_defines "RC" def_idx)
+                 if (${def_idx} GREATER -1)
+                   list(REMOVE_ITEM obj_defines "RC")
+                   list(APPEND obj_defines "RC=RC")
+                 endif ()
+                 list(FIND obj_defines "CR" def_idx)
+                 if (${def_idx} GREATER -1)
+                   list(REMOVE_ITEM obj_defines "CR")
+                   list(APPEND obj_defines "CR=CR")
+                 endif ()"""))
+        if Version(self.version) < "0.3.21":
+            f_check_cmake = os.path.join(self.source_folder, "cmake", "f_check.cmake")
+            if Version(self.version) >= "0.3.12":
+                replace_in_file(self, f_check_cmake,
+                                'message(STATUS "No Fortran compiler found, can build only BLAS but not LAPACK")',
+                                'message(FATAL_ERROR "No Fortran compiler found. Cannot build with LAPACK.")')
+            else:
+                replace_in_file(self, f_check_cmake,
+                    "enable_language(Fortran)",
+                    textwrap.dedent("""\
+                        include(CheckLanguage)
+                        check_language(Fortran)
+                        if(CMAKE_Fortran_COMPILER)
+                          enable_language(Fortran)
+                        else()
+                          message(FATAL_ERROR "No Fortran compiler found. Cannot build with LAPACK.")
+                          set (NOFORTRAN 1)
+                          set (NO_LAPACK 1)
+                        endif()"""))
+
     def build(self):
-        apply_conandata_patches(self)
+        self._patch_sources()
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
 
     def package(self):
-        copy(self, pattern="LICENSE",
-             dst=path.join(self.package_folder, "licenses"),
-             src=self.source_folder)
+        copy(self, "LICENSE", self.source_folder, os.path.join(self.package_folder, "licenses"))
         cmake = CMake(self)
         cmake.install()
-        rmdir(self, path.join(self.package_folder, "lib", "pkgconfig"))
-        rmdir(self, path.join(self.package_folder, "share"))
+        rmdir(self, os.path.join(self.package_folder, "lib", "cmake"))
+        rmdir(self, os.path.join(self.package_folder, "lib", "pkgconfig"))
+        rmdir(self, os.path.join(self.package_folder, "share"))
         fix_apple_shared_install_name(self)
 
-        if self.options.build_lapack:
-            copy(self, pattern="FORTRAN_COMPILER",
-                 src=self.build_folder,
-                 dst=path.join(self.package_folder, "res"))
+    @property
+    def _lib_name(self):
+        if self.options.shared and self.settings.build_type == "Debug" and not is_msvc(self):
+            return "openblas_d"
+        return "openblas"
 
     def package_info(self):
         # CMake config file:
         # - OpenBLAS always has one and only one of these components: openmp, pthread or serial.
-        # - Whether this component is requested or not, official CMake imported target is always OpenBLAS::OpenBLAS
+        # - Whatever if this component is requested or not, official CMake imported target is always OpenBLAS::OpenBLAS
+        # - TODO: add openmp component when implemented in this recipe
         self.cpp_info.set_property("cmake_file_name", "OpenBLAS")
         self.cpp_info.set_property("cmake_target_name", "OpenBLAS::OpenBLAS")
         self.cpp_info.set_property("pkg_config_name", "openblas")
-
-        component_name = "serial"
-        if self.options.use_thread:
-            component_name = "pthread"
-        elif self.options.use_openmp:
-            component_name = "openmp"
-
-        self.cpp_info.components[component_name].set_property(
-            "pkg_config_name", "openblas")
-
-        # Target cannot be named pthread -> causes failed linking
-        self.cpp_info.components[component_name].set_property(
-            "cmake_target_name", "OpenBLAS::" + component_name)
-        self.cpp_info.components[component_name].includedirs.append(
-            path.join("include", "openblas")
-        )
-        self.cpp_info.components[component_name].libs = collect_libs(self)
+        # 'pthread' causes issues without namespace
+        cmake_component_name = "pthread" if self.options.use_thread else "serial"  # TODO: how to model this in CMakeDeps?
+        self.cpp_info.components["openblas_component"].set_property("cmake_target_name", f"OpenBLAS::{cmake_component_name}")
+        self.cpp_info.components["openblas_component"].set_property("pkg_config_name", "openblas")
+        self.cpp_info.components["openblas_component"].includedirs.append(os.path.join("include", "openblas"))
+        self.cpp_info.components["openblas_component"].libs = [self._lib_name]
         if self.settings.os in ["Linux", "FreeBSD"]:
-            self.cpp_info.components[component_name].system_libs.append("m")
+            self.cpp_info.components["openblas_component"].system_libs.append("m")
             if self.options.use_thread:
-                self.cpp_info.components[component_name].system_libs.append("pthread")
-            if self.options.use_openmp:
-                openmp_rt = self._openmp_runtime
-                if openmp_rt:
-                    self.cpp_info.components[component_name].system_libs.append(openmp_rt)
+                self.cpp_info.components["openblas_component"].system_libs.append("pthread")
+            if self.options.build_lapack and self._fortran_compiler:
+                self.cpp_info.components["openblas_component"].system_libs.append("gfortran")
 
-        if self.options.build_lapack:
-            fortran_file = path.join(self.package_folder, "res", "FORTRAN_COMPILER")
-            # >=v0.3.21: compiling w/o fortran is possible
-            if path.isfile(fortran_file):
-                fortran_id = load(self, fortran_file)
-                if fortran_id == "GNU":
-                    fortran_rt = self._fortran_runtime(fortran_id)
-                    if fortran_rt:
-                        self.cpp_info.components[component_name].system_libs.append("dl")
-                        self.cpp_info.components[component_name].system_libs.append(fortran_rt)
-                elif fortran_id == "0":
-                    pass
-                else:
-                    self.output.warning(f"Runtime libraries for {fortran_id} are not specified")
-
-        self.cpp_info.requires.append(component_name)
-
-        # TODO: Remove env_info in conan v2
-        self.output.info(f"Setting OpenBLAS_HOME environment variable: {self.package_folder}")
-        self.env_info.OpenBLAS_HOME = self.package_folder
+        self.buildenv_info.define_path("OpenBLAS_HOME", self.package_folder)
         self.runenv_info.define_path("OpenBLAS_HOME", self.package_folder)
 
         # TODO: to remove in conan v2 once cmake_find_package_* generators removed
         self.cpp_info.names["cmake_find_package"] = "OpenBLAS"
         self.cpp_info.names["cmake_find_package_multi"] = "OpenBLAS"
-        self.cpp_info.components[component_name].names["cmake_find_package"] = component_name
-        self.cpp_info.components[component_name].names["cmake_find_package_multi"] = component_name
+        self.cpp_info.components["openblas_component"].names["cmake_find_package"] = cmake_component_name
+        self.cpp_info.components["openblas_component"].names["cmake_find_package_multi"] = cmake_component_name
+        self.env_info.OpenBLAS_HOME = self.package_folder

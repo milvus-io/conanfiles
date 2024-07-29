@@ -1,9 +1,0 @@
-{
-    "version": 4,
-    "vendor": {
-        "conan": {}
-    },
-    "include": [
-        "/Users/jiaoew/workspace/conan-center-index/recipes/googleapis/all/test_package/build/Release/generators/CMakePresets.json"
-    ]
-}

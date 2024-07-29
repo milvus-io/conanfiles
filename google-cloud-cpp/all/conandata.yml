@@ -1,16 +1,23 @@
 sources:
-  "2.5.0":
-    url: "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/v2.5.0.tar.gz"
-    sha256: "ac93ef722d08bfb220343bde2f633c7c11f15e34ec3ecd0a57dbd3ff729cc3a6"
+  "1.26.1":
+    url: "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/v1.26.1.tar.gz"
+    sha256: "83108515fc59c72cdb87f178712256f4b0098e1ca5dc6f64c2c20dd2f1e1559d"
+  "1.27.0":
+    url: "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/v1.27.0.tar.gz"
+    sha256: "84a7ac7b63db986bb737462e374c11fc6f35f6020ccaacec1d0e4d61ec929528"
+  "1.30.1":
+    url: "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/v1.30.1.tar.gz"
+    sha256: "b651a58cb44bd715f0cb8e42c7ea58490b3e768a35ede01d798b983eef88e143"
+  "1.31.1":
+    url: "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/v1.31.1.tar.gz"
+    sha256: "dc7cbf95b506a84b48cf71e0462985d262183edeaabdacaaee2109852394a609"
+  "1.40.1":
+    url: "https://github.com/googleapis/google-cloud-cpp/archive/refs/tags/v1.40.1.tar.gz"
+    sha256: "fb62f0e7dc964c5d3cd0d85977b85f3e0e7dce97e9029abf9c32ecc29db07043"
 patches:
-  "2.5.0":
-    - patch_file: "patches/2.5.0/001-use-googleapis-conan-package.patch"
-      patch_description: "Use Conan package for googleapis"
-      patch_type: conan
-    - patch_file: "patches/2.5.0/002-interface-library-properties.patch"
-      patch_source: https://github.com/googleapis/google-cloud-cpp/pull/10636
-      patch_description: "Fix problems with INTERFACE proto libraries"
-      patch_type: backport
-    - patch_file: "patches/2.5.0/003-use-conan-msvc-runtime.patch"
-      patch_description: "Let Conan select the MSVC runtime"
-      patch_type: conan
+  "1.26.1":
+    - patch_file: "patches/0001-googleapis-folder.patch"
+      base_path: "source_subfolder"
+  "1.27.0":
+    - patch_file: "patches/0001-googleapis-folder.patch"
+      base_path: "source_subfolder"
