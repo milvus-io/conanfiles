@@ -1,6 +1,7 @@
 from conans import ConanFile
 
 
+
 class MilvusConan(ConanFile):
     keep_imports = True
     settings = "os", "compiler", "build_type", "arch"
