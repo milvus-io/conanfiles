@@ -39,7 +39,7 @@ class MilvusConan(ConanFile):
         "re2/20230301",
         "folly/2023.10.30.08@milvus/dev",
         "google-cloud-cpp/2.5.0@milvus/dev",
-        "opentelemetry-cpp/1.8.3@milvus/dev",
+        "opentelemetry-cpp/1.9.1@",
         "grpc/1.54.3@milvus/dev", # fix grpc infinite loop
         "librdkafka/1.9.1",
         "abseil/20230125.3",

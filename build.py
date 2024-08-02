@@ -65,7 +65,7 @@ if __name__ == "__main__":
     system("conan export onetbb/all onetbb/2021.7.0@")
     system("conan export onetbb/all onetbb/2021.9.0@")
     system("conan export opentelemetry-proto/all opentelemetry-proto/0.19.0@")
-    system("conan export opentelemetry-cpp/all opentelemetry-cpp/1.8.3@milvus/dev")
+    system("conan export opentelemetry-cpp/all opentelemetry-cpp/1.9.1@")
     system("conan export pkgconf/all pkgconf/1.9.3@")
     system("conan export pkgconf/all pkgconf/2.1.0@")
     system("conan export prometheus-cpp/all prometheus-cpp/1.1.0@")
@@ -84,3 +84,4 @@ if __name__ == "__main__":
     system("conan export b2/portable b2/5.2.1@")
     system("conan export cmake/binary cmake/3.30.0@")
     system("conan export openssl/3.x.x openssl/3.1.2@")
+
