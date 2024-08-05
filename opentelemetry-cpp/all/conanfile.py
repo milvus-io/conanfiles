@@ -46,7 +46,7 @@ class OpenTelemetryCppConan(ConanFile):
         "shared": False,
 
         "with_no_deprecated_code": False,
-        "with_stl": False,
+        "with_stl": True,
         "with_gsl": False,
         "with_abseil": True,
         "with_otlp": "deprecated",
@@ -116,7 +116,7 @@ class OpenTelemetryCppConan(ConanFile):
             self.requires("protobuf/3.21.12", transitive_headers=True, transitive_libs=True)
 
         if self.options.with_otlp_grpc:
-            self.requires("grpc/1.54.3", transitive_headers=True, transitive_libs=True)
+            self.requires("grpc/1.54.3@milvus/dev", transitive_headers=True, transitive_libs=True)
 
         if (self.options.with_zipkin or
            self.options.with_elasticsearch or
@@ -179,7 +179,7 @@ class OpenTelemetryCppConan(ConanFile):
             self.tool_requires("protobuf/<host_version>")
 
         if self.options.with_otlp_grpc:
-            self.tool_requires("grpc/<host_version>")
+            self.tool_requires("grpc/1.54.3@milvus/dev")
 
     def _create_cmake_module_variables(self, module_file):
         content = textwrap.dedent("""\
@@ -219,7 +219,7 @@ class OpenTelemetryCppConan(ConanFile):
         tc.cache_variables["WITH_PROMETHEUS"] = self.options.with_prometheus
         tc.cache_variables["WITH_ELASTICSEARCH"] = self.options.with_elasticsearch
         tc.cache_variables["WITH_ZPAGES"] = self.options.with_zpages
-        tc.cache_variables["WITH_JAEGER"] = self.options.get_safe("with_jaeger", False)
+        tc.cache_variables["WITH_JAEGER"] = self.options.get_safe("with_jaeger", True)
         tc.cache_variables["WITH_NO_GETENV"] = self.options.with_no_getenv
         tc.cache_variables["WITH_ETW"] = self.options.with_etw
         if Version(self.version) < "1.11":

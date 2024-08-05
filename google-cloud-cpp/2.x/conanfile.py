@@ -146,7 +146,7 @@ class GoogleCloudCppConan(ConanFile):
         # These must remain pinned in conan index.
         self.requires("protobuf/3.21.12", transitive_headers=True)
         self.requires("abseil/20230125.3", transitive_headers=True)
-        self.requires("grpc/1.54.3", transitive_headers=True)
+        self.requires("grpc/1.54.3@milvus/dev", transitive_headers=True)
         self.requires("nlohmann_json/3.11.2")
         self.requires("crc32c/1.1.2")
         # The rest require less pinning.
@@ -156,7 +156,7 @@ class GoogleCloudCppConan(ConanFile):
 
     def build_requirements(self):
         # For the `grpc-cpp-plugin` executable, and indirectly `protoc`
-        self.tool_requires("grpc/<host_version>")
+        self.tool_requires("grpc/1.54.3@milvus/dev")
 
     def generate(self):
         tc = CMakeToolchain(self)
