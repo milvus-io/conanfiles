@@ -77,6 +77,7 @@ class MilvusConan(ConanFile):
         "fmt:header_only": True,
         "onetbb:tbbmalloc": False,
         "onetbb:tbbproxy": False,
+        "grpc:shared": True,
     }
 
     def configure(self):
