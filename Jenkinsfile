@@ -1,4 +1,4 @@
-@Library('jenkins-shared-library@v0.6') _
+@Library('jenkins-shared-library@v0.6.1') _
 
 def pod = libraryResource 'io/milvus/pod/tekton.yaml'
 
@@ -26,6 +26,7 @@ pipeline {
                         gitBaseRef = isPr ? "$env.CHANGE_TARGET" : "$env.BRANCH_NAME"
 
                         job_name = tekton.buildConanfiles arch: 'amd64',
+                                              conan_version: "1.64.0",
                                               isPr: isPr,
                                               gitMode: gitMode ,
                                               gitBaseRef: gitBaseRef,
