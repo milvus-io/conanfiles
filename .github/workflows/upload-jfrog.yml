@@ -68,3 +68,6 @@ jobs:
         run: |
           docker run -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/root/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20240625-2ecfe15 conan user -p ${{ secrets.JFROG_PASSWORD }} -r default-conan-local ${{ secrets.JFROG_USERNAME }}
           docker run -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/root/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20240625-2ecfe15 conan upload ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }} -r default-conan-local --all
+      - name: print-package-revision
+        run: |
+          docker run -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/root/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20240625-2ecfe15 conan search ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }} --revisions
