@@ -10,6 +10,16 @@ on:
       version:
         description: 'Version to build'
         required: true
+      user_channel:
+        description: 'define the user and channel for the package '
+        default: ''
+        type: choice
+        options:
+        - ''
+        - 'milvus/dev'
+        - 'milvus/2.4'
+        - 'milvus/2.3'
+
 
 jobs:
   Build:
@@ -47,9 +57,9 @@ jobs:
           cd ${{ github.event.inputs.package }}/all
 
           if [[ `gcc -v 2>&1 | sed -n 's/.*\(--with-default-libstdcxx-abi\)=\(\w*\).*/\2/p'` == "gcc4" ]]; then
-            conan create . ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@milvus/dev --build=missing
+            conan create . ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }} --build=missing
           else
-            conan create . ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@milvus/dev --build=missing -s compiler.libcxx=libstdc++11
+            conan create . ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }} --build=missing -s compiler.libcxx=libstdc++11
           fi
           EOF
           chmod +x build.sh
@@ -57,4 +67,4 @@ jobs:
       - name: Upload
         run: |
           docker run -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/root/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20240625-2ecfe15 conan user -p ${{ secrets.JFROG_PASSWORD }} -r default-conan-local ${{ secrets.JFROG_USERNAME }}
-          docker run -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/root/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20240625-2ecfe15 conan upload ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@milvus/dev -r default-conan-local --all
+          docker run -e CONAN_REVISIONS_ENABLED=1 -v $(pwd)/.docker/conan-cache:/root/.conan:delegated milvusdb/milvus-env:${{ matrix.os }}-20240625-2ecfe15 conan upload ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }} -r default-conan-local --all
