@@ -1,10 +1,14 @@
-@Library('jenkins-shared-library') _
+@Library('jenkins-shared-library@v0.6') _
 
 def pod = libraryResource 'io/milvus/pod/tekton.yaml'
 
 pipeline {
+
     options {
         skipDefaultCheckout true
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+
     }
     agent {
         kubernetes {
