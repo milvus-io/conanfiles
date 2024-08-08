@@ -25,7 +25,7 @@ if __name__ == "__main__":
     system("conan export aws-sdk-cpp/all aws-sdk-cpp/1.9.234@")
     system("conan export benchmark/all benchmark/1.7.0@")
     system("conan export bison/all bison/3.8.2@")
-    system("conan export boost/all boost/1.82.0@")
+    # system("conan export boost/all boost/1.82.0@")
     system("conan export bzip2/all bzip2/1.0.8@")
     system("conan export c-ares/all c-ares/1.32.1@")
     system("conan export crc32c/all crc32c/1.1.1@")
