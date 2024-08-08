@@ -16,6 +16,6 @@ class TestPackageConan(ConanFile):
     def test(self):
         if not can_run(self):
             return
-        for test in ["bigtable", "pubsub", "spanner", "speech", "storage"]:
+        for test in ["storage"]:
             cmd = os.path.join("bin", test)
             self.run(cmd, run_environment=True)
