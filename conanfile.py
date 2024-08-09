@@ -38,9 +38,9 @@ class MilvusConan(ConanFile):
         "prometheus-cpp/1.1.0#ea9b101cb785943adb40ad82eda7856c",
         "re2/20230301#f8efaf45f98d0193cd0b2ea08b6b4060",
         "folly/2023.10.30.08@milvus/dev#81d7729cd4013a1b708af3340a3b04d9",
-        "google-cloud-cpp/2.5.0@milvus/2.4#b8dda0943d40adee69d7adc5fafc317d",
-        "opentelemetry-cpp/1.8.3@milvus/2.4#3b8139532791a163c8ff2819c55eb4ac",
-        "grpc/1.54.3@milvus/dev#5dfb5e1477b22c6d1e6d6b90ab5501d8", # fix grpc infinite loop
+        "google-cloud-cpp/2.5.0@milvus/2.4",
+        "opentelemetry-cpp/1.8.1.1@milvus/2.4",
+        "grpc/1.50.1@milvus/dev", # fix grpc infinite loop
         "librdkafka/1.9.1#e24dcbb0a1684dcf5a56d8d0692ceef3",
         "abseil/20230125.3#dad7cc4c83bbd44c1f1cc9cc4d97ac88",
         "roaring/3.0.0#25a703f80eda0764a31ef939229e202d",
@@ -77,7 +77,6 @@ class MilvusConan(ConanFile):
         "fmt:header_only": True,
         "onetbb:tbbmalloc": False,
         "onetbb:tbbproxy": False,
-        "grpc:shared": True,
     }
 
     def configure(self):
