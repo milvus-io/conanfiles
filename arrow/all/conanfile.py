@@ -60,6 +60,7 @@ class ArrowConan(ConanFile):
         "with_protobuf": ["auto", True, False],
         "with_re2": ["auto", True, False],
         "with_s3": [True, False],
+        "with_azure": [True, False],
         "with_utf8proc": ["auto", True, False],
         "with_brotli": [True, False],
         "with_bz2": [True, False],
@@ -109,6 +110,7 @@ class ArrowConan(ConanFile):
         "with_protobuf": False,
         "with_re2": False,
         "with_s3": False,
+        "with_azure": False,
         "with_utf8proc": False,
         "with_lz4": False,
         "with_snappy": False,
@@ -170,7 +172,7 @@ class ArrowConan(ConanFile):
         if self.options.with_mimalloc:
             self.requires("mimalloc/1.7.6")
         if self.options.with_boost:
-            self.requires("boost/1.84.0")
+            self.requires("boost/1.85.0")
         if self.options.with_gflags:
             self.requires("gflags/2.2.2")
         if self.options.with_glog:
@@ -216,6 +218,8 @@ class ArrowConan(ConanFile):
             self.requires("libbacktrace/cci.20210118")
         if self.options.with_orc:
             self.requires("orc/2.0.0")
+        if self.options.with_azure:
+            self.requires("azure-sdk-for-cpp/1.11.3")
 
     def validate(self):
         # Do not allow options with 'auto' value
@@ -361,6 +365,7 @@ class ArrowConan(ConanFile):
             tc.variables["ARROW_USE_BOOST"] = True
             tc.variables["ARROW_BOOST_USE_SHARED"] = bool(self.dependencies["boost"].options.shared)
         tc.variables["ARROW_S3"] = bool(self.options.with_s3)
+        tc.variables["ARROW_AZURE"] = bool(self.options.with_azure)
         tc.variables["AWSSDK_SOURCE"] = "SYSTEM"
         tc.variables["ARROW_BUILD_UTILITIES"] = bool(self.options.cli)
         tc.variables["ARROW_BUILD_INTEGRATION"] = False
@@ -579,7 +584,10 @@ class ArrowConan(ConanFile):
         if self._requires_rapidjson():
             self.cpp_info.components["libarrow"].requires.append("rapidjson::rapidjson")
         if self.options.with_s3:
-            self.cpp_info.components["libarrow"].requires.append("aws-sdk-cpp::s3")
+            # https://github.com/apache/arrow/blob/6b268f62a8a172249ef35f093009c740c32e1f36/cpp/src/arrow/CMakeLists.txt#L98
+            self.cpp_info.components["libarrow"].requires.extend([f"aws-sdk-cpp::{x}" for x in ["cognito-identity", "core", "identity-management", "s3", "sts"]])
+        if self.options.with_azure:
+            self.cpp_info.components["libarrow"].requires.extend([f"azure-sdk-for-cpp::{x}" for x in ["azure-storage-common","azure-storage-blobs","azure-identity","azure-storage-files-shares","azure-storage-files-datalake"]])
         if self.options.get_safe("with_gcs"):
             self.cpp_info.components["libarrow"].requires.append("google-cloud-cpp::storage")
         if self.options.with_orc:
