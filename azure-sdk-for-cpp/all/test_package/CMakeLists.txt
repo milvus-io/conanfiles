@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 
 project(test_package LANGUAGES CXX)
 
-find_package(AzureSDK CONFIG REQUIRED)
+find_package(Azure CONFIG REQUIRED)
 
 add_executable(test_azure-core test_azure-core.cc)
 target_link_libraries(test_azure-core PRIVATE Azure::azure-core)
