@@ -80,6 +80,7 @@ class AzureSDKForCppConan(ConanFile):
         tc.cache_variables["BUILD_WINDOWS_UWP"] = "ON"
         tc.cache_variables["DISABLE_AZURE_CORE_OPENTELEMETRY"] = "ON"
         tc.cache_variables["BUILD_TRANSPORT_CURL"] = "ON"
+        tc.cache_variables["WARNINGS_AS_ERRORS"] = "OFF"
         tc.generate()
 
         deps = CMakeDeps(self)
