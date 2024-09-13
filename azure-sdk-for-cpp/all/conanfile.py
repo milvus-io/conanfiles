@@ -54,13 +54,13 @@ class AzureSDKForCppConan(ConanFile):
             check_min_cppstd(self, 14)
 
         # Open to contributions for windows and apple
-        if self.settings.os != "Linux":
-            raise ConanInvalidConfiguration(
-                f"{self.ref} Conan recipe in ConanCenter still does not support {self.settings.os}, contributions to the recipe welcome.")
+        # if self.settings.os != "Linux":
+        #     raise ConanInvalidConfiguration(
+        #         f"{self.ref} Conan recipe in ConanCenter still does not support {self.settings.os}, contributions to the recipe welcome.")
 
-        if self.settings.compiler != "gcc":
-            raise ConanInvalidConfiguration(
-                f"{self.ref} Conan recipe in ConanCenter still does not support {self.settings.compiler}, contributions to the recipe welcome.")
+        # if self.settings.compiler != "gcc":
+        #     raise ConanInvalidConfiguration(
+        #         f"{self.ref} Conan recipe in ConanCenter still does not support {self.settings.compiler}, contributions to the recipe welcome.")
 
         if self.settings.compiler == 'gcc' and Version(self.settings.compiler.version) < "6":
             raise ConanInvalidConfiguration("Building requires GCC >= 6")
