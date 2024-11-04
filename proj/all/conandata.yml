@@ -1,0 +1,10 @@
+sources:
+  "9.3.1":
+    url: "https://github.com/OSGeo/PROJ/releases/download/9.3.1/proj-9.3.1.tar.gz"
+    sha256: "b0f919cb9e1f42f803a3e616c2b63a78e4d81ecfaed80978d570d3a5e29d10bc"
+patches:
+  "9.3.1":
+    - patch_file: "patches/0001-use-cmake-targets-9.2.1.patch"
+      patch_type: "conan"
+      patch_description: "Use cmake targets"
+
