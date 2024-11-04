@@ -3,5 +3,3 @@
 **/build-release
 **/build-aux
 velox/all/source_subfolder
-upload.sh
-download_milvus_package.sh
