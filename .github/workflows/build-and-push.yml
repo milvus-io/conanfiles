@@ -1,0 +1,86 @@
+name: build and push
+description: build a conan package and push it to artifactory
+on:
+  workflow_dispatch:
+    inputs:
+
+      package:
+        description: 'package name'
+        required: true
+      version:
+        description: 'package version'
+        required: true
+      
+      conanfile_path:
+        description: 'the conanfile.py path of the package '
+        required: true
+        default: 'all/conanfile.py'
+
+      repository:
+        description: 'Choose Artifactory repository'
+        required: false
+        type: choice
+        options:
+          - production
+          - testing
+        default: 'testing'
+
+      user_channel:
+        description: 'define the user and channel for the package '
+        required: false
+        default: ''
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      CONAN_REVISIONS_ENABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13' 
+
+      - name: Install Conan
+        run: |
+          pip install --user conan==1.65.0
+          conan --version
+
+      - name: Configure Conan remote
+        run: |
+          conan remote remove conancenter
+          conan remote add default-conan-local https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local
+          conan remote add testing https://milvus01.jfrog.io/artifactory/api/conan/testing
+
+          # make conancenter the lowest priority
+          conan remote add conancenter https://center.conan.io 
+
+      - name: List remote Conan repositories
+        run: |
+          # List remote Conan repositories
+          conan remote list
+
+      - name: build a package
+        run: |
+          # get the path of the conanfile.py
+          PACKAGE_RECIPE_PATH="${{ github.event.inputs.package }}/${{ github.event.inputs.conanfile_path }}"
+
+          # build the package
+          conan create $PACKAGE_RECIPE_PATH ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@ --build=missing -s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s build_type=Release
+
+
+      - name: inspect built package
+        run: |
+          conan search '*' --revisions
+
+      - name: Upload
+        run: |
+          conan user -p ${{ secrets.JFROG_PASSWORD }} -r artifactory ${{ secrets.JFROG_USERNAME }}
+
+          # upload all packages
+          if [ "${{ github.event.inputs.repository }}" = "production" ]; then
+            # upload to production repository
+            conan upload '*' -r default-conan-local -c
+          else
+            # upload to testing repository
+            conan upload '*' -r testing -c
+          fi
