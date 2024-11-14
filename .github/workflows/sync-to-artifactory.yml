@@ -7,14 +7,6 @@ on:
         description: 'The Conan package to install'
         required: true
         default: 'gdal/3.5.3'
-      upload:
-        description: 'Choose whether to perform upload or dry run'
-        required: false
-        type: choice
-        options:
-          - 'true'
-          - 'false'
-        default: 'false'
       repository:
         description: 'Choose Artifactory repository'
         required: false
@@ -62,7 +54,6 @@ jobs:
           conan search '*' --revisions
 
       - name: Upload
-        if: ${{ github.event.inputs.upload == 'true' }}
         run: |
           conan user -p ${{ secrets.JFROG_PASSWORD }} -r artifactory ${{ secrets.JFROG_USERNAME }}
 
