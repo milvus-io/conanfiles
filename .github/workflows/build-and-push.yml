@@ -34,6 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CONAN_REVISIONS_ENABLED: 1
+      # the path of the conanfile.py
+      PACKAGE_RECIPE_PATH: ${{ github.event.inputs.package | trim }}/${{ github.event.inputs.conanfile_path | trim }}
+      # the package reference
+      PACKAGE_REF: ${{ github.event.inputs.package | trim }}/${{ github.event.inputs.version | trim }}@${{ github.event.inputs.user_channel | trim }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -61,11 +65,13 @@ jobs:
 
       - name: build a package
         run: |
-          # get the path of the conanfile.py
-          PACKAGE_RECIPE_PATH="${{ github.event.inputs.package }}/${{ github.event.inputs.conanfile_path }}"
 
-          # build the package
-          conan create $PACKAGE_RECIPE_PATH ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@ --build=missing -s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s build_type=Release
+          conan create $PACKAGE_RECIPE_PATH $PACKAGE_REF \
+            --build=missing \
+            -s compiler=gcc \
+            -s compiler.version=11 \
+            -s compiler.libcxx=libstdc++11 \
+            -s build_type=Release
 
 
       - name: inspect built package
