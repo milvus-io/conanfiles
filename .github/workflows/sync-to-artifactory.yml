@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       package:
-        description: 'The Conan package to install'
+        description: 'package name'
         required: true
-        default: 'gdal/3.5.3'
+      version:
+        description: 'package version'
+        required: true
       repository:
         description: 'Choose Artifactory repository'
         required: false
@@ -46,7 +48,7 @@ jobs:
 
       - name: Install package
         run: |
-          conan install ${{ github.event.inputs.package }}@ -s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s build_type=Release
+          conan install ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@ -s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s build_type=Release
 
       - name: inspect installed package
         run: |
