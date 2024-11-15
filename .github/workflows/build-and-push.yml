@@ -74,13 +74,14 @@ jobs:
 
       - name: Upload
         run: |
-          conan user -p ${{ secrets.JFROG_PASSWORD }} -r artifactory ${{ secrets.JFROG_USERNAME }}
 
           # upload all packages
           if [ "${{ github.event.inputs.repository }}" = "production" ]; then
+            conan user -p ${{ secrets.JFROG_PASSWORD }} -r default-conan-local ${{ secrets.JFROG_USERNAME }}
             # upload to production repository
             conan upload '*' -r default-conan-local -c
           else
+            conan user -p ${{ secrets.JFROG_PASSWORD }} -r testing ${{ secrets.JFROG_USERNAME }}
             # upload to testing repository
             conan upload '*' -r testing -c
           fi
