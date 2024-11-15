@@ -35,9 +35,9 @@ jobs:
     env:
       CONAN_REVISIONS_ENABLED: 1
       # the path of the conanfile.py
-      PACKAGE_RECIPE_PATH: ${{ github.event.inputs.package | trim }}/${{ github.event.inputs.conanfile_path | trim }}
+      PACKAGE_RECIPE_PATH: ${{ github.event.inputs.package }}/${{ github.event.inputs.conanfile_path }}
       # the package reference
-      PACKAGE_REF: ${{ github.event.inputs.package | trim }}/${{ github.event.inputs.version | trim }}@${{ github.event.inputs.user_channel | trim }}
+      PACKAGE_REF: ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

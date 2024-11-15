@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CONAN_REVISIONS_ENABLED: 1
-      PACKAGE_REF: ${{ github.event.inputs.package | trim }}/${{ github.event.inputs.version | trim }}@
+      PACKAGE_REF: ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
