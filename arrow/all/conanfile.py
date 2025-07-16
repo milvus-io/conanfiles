@@ -587,7 +587,7 @@ class ArrowConan(ConanFile):
             # https://github.com/apache/arrow/blob/6b268f62a8a172249ef35f093009c740c32e1f36/cpp/src/arrow/CMakeLists.txt#L98
             self.cpp_info.components["libarrow"].requires.extend([f"aws-sdk-cpp::{x}" for x in ["cognito-identity", "core", "identity-management", "s3", "sts"]])
         if self.options.with_azure:
-            self.cpp_info.components["libarrow"].requires.extend([f"azure-sdk-for-cpp::{x}" for x in ["azure-storage-common","azure-storage-blobs","azure-identity","azure-storage-files-shares","azure-storage-files-datalake"]])
+            self.cpp_info.components["libarrow"].requires.extend([f"azure-sdk-for-cpp::{x}" for x in ["azure-core", "azure-storage-common","azure-storage-blobs","azure-identity","azure-storage-files-shares","azure-storage-files-datalake"]])
         if self.options.get_safe("with_gcs"):
             self.cpp_info.components["libarrow"].requires.append("google-cloud-cpp::storage")
         if self.options.with_orc:
