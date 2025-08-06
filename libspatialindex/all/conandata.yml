@@ -1,0 +1,4 @@
+sources:
+  "2.1.0":
+    url: "https://github.com/libspatialindex/libspatialindex/archive/refs/tags/2.1.0.tar.gz"
+    sha256: "a04513cea04dd20ab2c9d153c14cc45692805ee496b30619103f7929f6fb81bf"
