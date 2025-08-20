@@ -113,6 +113,10 @@ class GeosConan(ConanFile):
         copy(self, "geos.h", src=os.path.join(self.source_folder, "include"), dst=os.path.join(self.package_folder, "include"))
         rmdir(self, os.path.join(self.package_folder, "lib", "cmake"))
         rmdir(self, os.path.join(self.package_folder, "lib", "pkgconfig"))
+        # Set executable permissions for geos-config
+        geos_config_path = os.path.join(self.package_folder, "bin", "geos-config")
+        if os.path.exists(geos_config_path):
+            os.chmod(geos_config_path, 0o755)
 
     def package_info(self):
         self.cpp_info.set_property("cmake_file_name", "geos")
