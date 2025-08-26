@@ -71,7 +71,8 @@ jobs:
             -s compiler=gcc \
             -s compiler.version=11 \
             -s compiler.libcxx=libstdc++11 \
-            -s build_type=Release
+            -s build_type=Release \
+            -c tools.system.package_manager:mode=install
 
 
       - name: inspect built package
