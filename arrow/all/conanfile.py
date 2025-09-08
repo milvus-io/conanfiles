@@ -219,7 +219,7 @@ class ArrowConan(ConanFile):
         if self.options.with_orc:
             self.requires("orc/2.0.0")
         if self.options.with_azure:
-            self.requires("azure-sdk-for-cpp/1.11.3@milvus/dev")
+            self.requires("azure-sdk-for-cpp/1.16.0@milvus/dev")
 
     def validate(self):
         # Do not allow options with 'auto' value
