@@ -55,7 +55,7 @@ class LibavrocppConan(ConanFile):
         tc.generate()
 
         deps = CMakeDeps(self)
-        deps.set_property("fmt", "cmake_target_aliases", ["fmt::fmt"])
+        deps.set_property("fmt", "cmake_target_aliases", ["fmt::fmt-header-only"])
         deps.generate()
 
     def build(self):
