@@ -1,10 +1,9 @@
 from conan import ConanFile
 from conan.tools.files import get, copy, rm, rmdir, replace_in_file
-from conan.tools.build import check_min_cppstd
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 import os
 
-required_conan_version = ">=2.1"
+#required_conan_version = ">=2.1"
 
 
 class LibavrocppConan(ConanFile):
@@ -35,15 +34,12 @@ class LibavrocppConan(ConanFile):
 
     def layout(self):
         cmake_layout(self, src_folder="src")
-        
+
     def requirements(self):
         self.requires("boost/[>=1.81.0 <=1.89.0]", transitive_headers=True)
         self.requires("snappy/[>=1.1.9 <2]")
         self.requires("fmt/[>=12 <13]", transitive_headers=True)
         self.requires("zlib/[>=1.3.1 <2]")
-
-    def validate(self):
-        check_min_cppstd(self, 17)
 
     def source(self):
         get(self, **self.conan_data["sources"][self.version], strip_root=True)
@@ -59,7 +55,7 @@ class LibavrocppConan(ConanFile):
         tc.generate()
 
         deps = CMakeDeps(self)
-        deps.set_property("fmt", "cmake_target_aliases", ["fmt::fmt-header-only"])
+        deps.set_property("fmt", "cmake_target_aliases", ["fmt::fmt"])
         deps.generate()
 
     def build(self):
