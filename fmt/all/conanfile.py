@@ -29,7 +29,7 @@ class FmtConan(ConanFile):
         "with_unicode": [True, False],
     }
     default_options = {
-        "header_only": False,
+        "header_only": True,
         "shared": False,
         "fPIC": True,
         "with_fmt_alias": False,
@@ -156,9 +156,9 @@ class FmtConan(ConanFile):
                 self.cpp_info.components["_fmt"].defines.append("FMT_SHARED")
 
         # TODO: to remove in conan v2 once cmake_find_package* generators removed
-        self.cpp_info.names["cmake_find_package"] = "fmt"
-        self.cpp_info.names["cmake_find_package_multi"] = "fmt"
-        self.cpp_info.names["pkg_config"] = "fmt"
+        self.cpp_info.names["cmake_find_package"] = target
+        self.cpp_info.names["cmake_find_package_multi"] = target
+        self.cpp_info.names["pkg_config"] = target
         self.cpp_info.components["_fmt"].names["cmake_find_package"] = target
         self.cpp_info.components["_fmt"].names["cmake_find_package_multi"] = target
         self.cpp_info.components["_fmt"].set_property("cmake_target_name", f"fmt::{target}")
