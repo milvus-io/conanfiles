@@ -1,9 +1,0 @@
-{
-    "version": 4,
-    "vendor": {
-        "conan": {}
-    },
-    "include": [
-        "/home/zhanglu/github/bugfix/conanfiles/google-cloud-cpp/all/test_package/build/Release/generators/CMakePresets.json"
-    ]
-}

@@ -23,7 +23,7 @@ on:
         options:
           - production
           - testing
-        default: 'testing'
+        default: 'production'
 
       user_channel:
         description: 'define the user and channel for the package '
@@ -37,85 +37,34 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    env:
-      CONAN_REVISIONS_ENABLED: 1
-      # the path of the conanfile.py
-      PACKAGE_RECIPE_PATH: ${{ github.event.inputs.package }}/${{ github.event.inputs.conanfile_path }}
-      # the package reference
-      PACKAGE_REF: ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13' 
+          python-version: '3.13'
 
-      - name: Install Conan
+      - name: Install Conan and dependencies
         run: |
-          pip install --user conan==1.65.0
+          pip install --user conan==2.25.1 pyyaml
           conan --version
+          conan profile detect
 
-      - name: Configure Conan remote
+      - name: Build and push
+        env:
+          JFROG_USERNAME2: ${{ secrets.JFROG_USERNAME2 }}
+          JFROG_PASSWORD2: ${{ secrets.JFROG_PASSWORD2 }}
+          INPUT_PACKAGE: ${{ github.event.inputs.package }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_CONANFILE: ${{ github.event.inputs.conanfile_path }}
+          INPUT_REPOSITORY: ${{ github.event.inputs.repository }}
+          INPUT_USER_CHANNEL: ${{ github.event.inputs.user_channel }}
+          INPUT_EXTRA_OPTIONS: ${{ github.event.inputs.extra_options }}
         run: |
-          conan remote remove conancenter
-          conan remote add default-conan-local https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local
-          conan remote add testing https://milvus01.jfrog.io/artifactory/api/conan/testing
-
-          # make conancenter the lowest priority
-          conan remote add conancenter https://center.conan.io 
-
-      - name: List remote Conan repositories
-        run: |
-          # List remote Conan repositories
-          conan remote list
-
-      - name: Export all local recipes
-        run: |
-          # Export all recipes in the repo so transitive deps can be resolved locally
-          for config in */config.yml; do
-            pkg_dir=$(dirname "$config")
-            pkg_name=$(basename "$pkg_dir")
-            recipe_path="$pkg_dir/all/conanfile.py"
-            if [ -f "$recipe_path" ]; then
-              # Read versions from config.yml and export each
-              python3 -c "
-          import yaml, sys
-          with open('$config') as f:
-              data = yaml.safe_load(f)
-          for ver in (data.get('versions') or {}):
-              print(ver)
-          " | while read -r ver; do
-                conan export "$recipe_path" "$pkg_name/$ver@" 2>/dev/null || true
-              done
-            fi
-          done
-
-      - name: build a package
-        run: |
-
-          conan create $PACKAGE_RECIPE_PATH $PACKAGE_REF \
-            --build=missing \
-            -s compiler=gcc \
-            -s compiler.version=11 \
-            -s compiler.libcxx=libstdc++11 \
-            -s compiler.cppstd=17 \
-            -s build_type=Release \
-            ${{ github.event.inputs.extra_options }}
-
-
-      - name: inspect built package
-        run: |
-          conan search '*' --revisions
-
-      - name: Upload
-        run: |
-
-          # upload all packages
-          if [ "${{ github.event.inputs.repository }}" = "production" ]; then
-            conan user -p ${{ secrets.JFROG_PASSWORD }} -r default-conan-local ${{ secrets.JFROG_USERNAME }}
-            # upload to production repository
-            conan upload '*' -r default-conan-local -c
-          else
-            conan user -p ${{ secrets.JFROG_PASSWORD }} -r testing ${{ secrets.JFROG_USERNAME }}
-            # upload to testing repository
-            conan upload '*' -r testing -c
+          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --repository "$INPUT_REPOSITORY")
+          if [ -n "$INPUT_USER_CHANNEL" ]; then
+            ARGS+=(--user-channel "$INPUT_USER_CHANNEL")
           fi
+          if [ -n "$INPUT_EXTRA_OPTIONS" ]; then
+            ARGS+=(--extra-options "$INPUT_EXTRA_OPTIONS")
+          fi
+          ./scripts/build-and-push.sh "${ARGS[@]}"
