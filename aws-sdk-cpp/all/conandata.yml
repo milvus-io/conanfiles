@@ -15,6 +15,13 @@ sources:
     url: "https://github.com/aws/aws-sdk-cpp/archive/1.8.130.tar.gz"
     sha256: "5dd09baa28d3f6f4fb03fbba1a4269724d79bcca3d47752cd3e15caf97276bda"
 patches:
+  "1.11.692":
+    - patch_file: patches/1.11.352-0001-pulseaudio.patch
+    - patch_file: patches/1.9.100-0002-aws-plugin-conf.patch
+  "1.11.352":
+    - patch_file: patches/1.11.352-0001-pulseaudio.patch
+    - patch_file: patches/1.11.352-0002-disable-sort-links.patch
+    - patch_file: patches/1.9.100-0002-aws-plugin-conf.patch
   "1.9.234":
     - patch_file: patches/1.9.234-0001-issue-1816.patch
     - patch_file: patches/1.9.234-0002-disable-sort-links.patch

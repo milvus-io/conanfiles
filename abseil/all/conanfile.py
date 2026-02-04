@@ -244,6 +244,12 @@ class AbseilConan(ConanFile):
         self.cpp_info.names["cmake_find_package"] = "absl"
         self.cpp_info.names["cmake_find_package_multi"] = "absl"
 
+        # Ensure include directory is propagated to consumers via components
+        # In Conan 2.x CMakeDeps, component-level includedirs must be set explicitly
+        self.cpp_info.includedirs = ["include"]
+        for comp_name in abseil_components:
+            self.cpp_info.components[comp_name].includedirs = ["include"]
+
         self.cpp_info.set_property("cmake_build_modules", [self._cxx_std_module_filepath])
         self.cpp_info.components["absl_config"].build_modules["cmake_find_package"] = [self._cxx_std_module_filepath]
         self.cpp_info.components["absl_config"].build_modules["cmake_find_package_multi"] = [self._cxx_std_module_filepath]

@@ -1698,13 +1698,10 @@ class BoostConan(ConanFile):
         }.get(name, name)
 
     def package_info(self):
-        self.env_info.BOOST_ROOT = self.package_folder
+        self.buildenv_info.define_path("BOOST_ROOT", self.package_folder)
+        self.runenv_info.define_path("BOOST_ROOT", self.package_folder)
 
         self.cpp_info.set_property("cmake_file_name", "Boost")
-        self.cpp_info.filenames["cmake_find_package"] = "Boost"
-        self.cpp_info.filenames["cmake_find_package_multi"] = "Boost"
-        self.cpp_info.names["cmake_find_package"] = "Boost"
-        self.cpp_info.names["cmake_find_package_multi"] = "Boost"
 
         # - Use 'headers' component for all includes + defines
         # - Use '_libboost' component to attach extra system_libs, ...
@@ -2041,6 +2038,4 @@ class BoostConan(ConanFile):
                 (self.settings.compiler == "gcc" and Version(self.settings.compiler.version) == "10"):
                 self.cpp_info.components["cobalt"].cxxflags.append("-fcoroutines")
 
-        #TODO: remove in the future, user_info deprecated in conan2, but kept for compatibility while recipe is cross-compatible.
-        self.user_info.stacktrace_addr2line_available = self._stacktrace_addr2line_available
         self.conf_info.define("user.boost:stacktrace_addr2line_available", self._stacktrace_addr2line_available)

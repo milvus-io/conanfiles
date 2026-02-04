@@ -254,5 +254,4 @@ class CyrusSaslConan(ConanFile):
         elif is_msvc(self):
             self.cpp_info.system_libs = ["ws2_32"]
 
-        # TODO: to remove in conan v2
-        self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
+        self.buildenv_info.prepend_path("PATH", os.path.join(self.package_folder, "bin"))

@@ -542,8 +542,7 @@ class ArrowConan(ConanFile):
 
         if self.options.cli and (self.options.with_cuda or self.options.with_flight_rpc or self.options.parquet):
             binpath = os.path.join(self.package_folder, "bin")
-            self.output.info(f"Appending PATH env var: {binpath}")
-            self.env_info.PATH.append(binpath)
+            self.buildenv_info.prepend_path("PATH", binpath)
 
         if self.options.with_boost:
             if self.options.gandiva:
@@ -645,5 +644,3 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow_flight_sql"].names["cmake_find_package_multi"] = "flight_sql"
             self.cpp_info.components["libarrow_flight_sql"].build_modules["cmake_find_package"] = [self._module_file_rel_path]
             self.cpp_info.components["libarrow_flight_sql"].build_modules["cmake_find_package_multi"] = [self._module_file_rel_path]
-        if self.options.cli and (self.options.with_cuda or self.options.with_flight_rpc or self.options.parquet):
-            self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
