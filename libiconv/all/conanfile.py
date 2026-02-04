@@ -164,7 +164,4 @@ class LibiconvConan(ConanFile):
         self.cpp_info.set_property("cmake_target_name", "Iconv::Iconv")
         self.cpp_info.libs = ["iconv", "charset"]
 
-        # TODO: to remove in conan v2
-        self.cpp_info.names["cmake_find_package"] = "Iconv"
-        self.cpp_info.names["cmake_find_package_multi"] = "Iconv"
-        self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
+        self.buildenv_info.prepend_path("PATH", os.path.join(self.package_folder, "bin"))

@@ -61,6 +61,4 @@ class CMakeConan(ConanFile):
         else:
             bindir = os.path.join(self.package_folder, "bin")
         
-        # Needed for compatibility with v1.x - Remove when 2.0 becomes the default
-        self.output.info(f"Appending PATH environment variable: {bindir}")
-        self.env_info.PATH.append(bindir)
+        self.buildenv_info.prepend_path("PATH", bindir)
