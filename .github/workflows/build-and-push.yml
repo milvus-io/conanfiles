@@ -38,11 +38,8 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     env:
-      CONAN_REVISIONS_ENABLED: 1
       # the path of the conanfile.py
       PACKAGE_RECIPE_PATH: ${{ github.event.inputs.package }}/${{ github.event.inputs.conanfile_path }}
-      # the package reference
-      PACKAGE_REF: ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -51,17 +48,15 @@ jobs:
 
       - name: Install Conan
         run: |
-          pip install --user conan==1.65.0
+          pip install --user conan==2.25.1
           conan --version
+          conan profile detect
 
       - name: Configure Conan remote
         run: |
-          conan remote remove conancenter
-          conan remote add default-conan-local https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local
-          conan remote add testing https://milvus01.jfrog.io/artifactory/api/conan/testing
-
-          # make conancenter the lowest priority
-          conan remote add conancenter https://center.conan.io 
+          conan remote add default-conan2-local https://milvus01.jfrog.io/artifactory/api/conan2/default-conan2-local --index 0
+          conan remote add testing https://milvus01.jfrog.io/artifactory/api/conan2/testing --index 1
+          # conancenter is added by default, keep it as lowest priority 
 
       - name: List remote Conan repositories
         run: |
@@ -91,8 +86,14 @@ jobs:
 
       - name: build a package
         run: |
-
-          conan create $PACKAGE_RECIPE_PATH $PACKAGE_REF \
+          USER_CHANNEL="${{ github.event.inputs.user_channel }}"
+          USER_FLAGS=""
+          if [ -n "$USER_CHANNEL" ]; then
+            USER_FLAGS="--user=${USER_CHANNEL%%/*} --channel=${USER_CHANNEL#*/}"
+          fi
+          conan create $PACKAGE_RECIPE_PATH \
+            --version=${{ github.event.inputs.version }} \
+            $USER_FLAGS \
             --build=missing \
             -s compiler=gcc \
             -s compiler.version=11 \
@@ -104,18 +105,17 @@ jobs:
 
       - name: inspect built package
         run: |
-          conan search '*' --revisions
+          conan list '*:*'
 
       - name: Upload
         run: |
-
           # upload all packages
           if [ "${{ github.event.inputs.repository }}" = "production" ]; then
-            conan user -p ${{ secrets.JFROG_PASSWORD }} -r default-conan-local ${{ secrets.JFROG_USERNAME }}
+            conan remote login default-conan2-local ${{ secrets.JFROG_USERNAME }} -p ${{ secrets.JFROG_PASSWORD }}
             # upload to production repository
-            conan upload '*' -r default-conan-local -c
+            conan upload '*' -r default-conan2-local -c
           else
-            conan user -p ${{ secrets.JFROG_PASSWORD }} -r testing ${{ secrets.JFROG_USERNAME }}
+            conan remote login testing ${{ secrets.JFROG_USERNAME }} -p ${{ secrets.JFROG_PASSWORD }}
             # upload to testing repository
             conan upload '*' -r testing -c
           fi

@@ -6,7 +6,7 @@ from conan.tools.scm import Version
 from conan.errors import ConanInvalidConfiguration
 
 
-required_conan_version = ">=1.51.0"
+required_conan_version = ">=2"
 
 class CMakeConan(ConanFile):
     name = "cmake"
@@ -20,7 +20,8 @@ class CMakeConan(ConanFile):
 
     def validate(self):
         if self.settings.arch not in ["x86_64", "armv8"]:
-            raise ConanInvalidConfiguration("CMake binaries are only provided for x86_64 and armv8 architectures")
+            raise ConanInvalidConfiguration("CMake binaries are only provided for x86_64 and armv8 architectures. " +
+                        "Consider using the system cmake with [platform_tool_requires] section in your profile.")
 
         if self.settings.os == "Windows" and self.settings.arch == "armv8" and Version(self.version) < "3.24":
             raise ConanInvalidConfiguration("CMake only supports ARM64 binaries on Windows starting from 3.24")
@@ -42,7 +43,8 @@ class CMakeConan(ConanFile):
         else:
             docs_folder = os.path.join(self.build_folder, "doc", "cmake")
 
-        copy(self, "Copyright.txt", src=docs_folder, dst=os.path.join(self.package_folder, "licenses"), keep_path=False)
+        licensefile = "LICENSE.rst" if Version(self.version) >= "4.0.0" else "Copyright.txt"
+        copy(self, licensefile, src=docs_folder, dst=os.path.join(self.package_folder, "licenses"), keep_path=False)
 
         if self.settings.os != "Macos":
             # Remove unneeded folders (also cause long paths on Windows)
@@ -61,6 +63,4 @@ class CMakeConan(ConanFile):
         else:
             bindir = os.path.join(self.package_folder, "bin")
         
-        # Needed for compatibility with v1.x - Remove when 2.0 becomes the default
-        self.output.info(f"Appending PATH environment variable: {bindir}")
-        self.env_info.PATH.append(bindir)
+        self.buildenv_info.prepend_path("PATH", bindir)
