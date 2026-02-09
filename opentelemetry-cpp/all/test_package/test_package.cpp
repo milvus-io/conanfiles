@@ -13,10 +13,9 @@ int main(int argc, char **argv) {
 
   auto tracer = provider->GetTracer("simple");
 
-  std::shared_ptr<opentelemetry::trace::Span> span =
-      tracer->StartSpan("op", {
-                                  {"my.attribute", "123"},
-                              });
+  auto span = tracer->StartSpan("op", {
+                                          {"my.attribute", "123"},
+                                      });
 
   return 0;
 }
