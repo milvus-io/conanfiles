@@ -233,7 +233,8 @@ class OpenTelemetryCppConan(ConanFile):
 
         if Version(self.version) >= "1.23.0":
             # WITH_STL became a string option in v1.23.0
-            tc.variables["WITH_STL"] = "ON" if self.options.with_stl else "OFF"
+            # Use "CXX17" (not "ON") to avoid C++20 heterogeneous lookup issues
+            tc.variables["WITH_STL"] = "CXX17" if self.options.with_stl else "OFF"
             # WITH_OTLP umbrella option removed; individual options control the build
             # WITH_JAEGER and WITH_LOGS_PREVIEW removed
             tc.variables[
