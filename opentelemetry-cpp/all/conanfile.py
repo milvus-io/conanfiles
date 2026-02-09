@@ -53,7 +53,7 @@ class OpenTelemetryCppConan(ConanFile):
         "fPIC": True,
         "shared": False,
         "with_no_deprecated_code": False,
-        "with_stl": True,
+        "with_stl": False,
         "with_gsl": False,
         "with_abseil": True,
         "with_otlp": True,
@@ -74,7 +74,13 @@ class OpenTelemetryCppConan(ConanFile):
 
     @property
     def _minimum_cpp_standard(self):
-        return 11
+        return 14
+
+    @property
+    def _is_new_version(self):
+        """v1.22.0+ removed Jaeger, WITH_OTLP umbrella, WITH_LOGS_PREVIEW
+        and switched to FetchContent for proto."""
+        return Version(self.version) >= "1.22.0"
 
     def export_sources(self):
         export_conandata_patches(self)
@@ -82,21 +88,33 @@ class OpenTelemetryCppConan(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
-        # Jaeger was removed and logs became stable in v1.23.0+
-        if Version(self.version) >= "1.23.0":
+        if self._is_new_version:
             self.options.rm_safe("with_jaeger")
             self.options.rm_safe("with_logs_preview")
 
     def configure(self):
         if self.options.shared:
             self.options.rm_safe("fPIC")
-
-        if not self.options.with_otlp:
+        if not self._is_new_version and not self.options.with_otlp:
             self.options.rm_safe("with_otlp_grpc")
             self.options.rm_safe("with_otlp_http")
 
     def layout(self):
         cmake_layout(self, src_folder="src")
+
+    @property
+    def _needs_proto(self):
+        if self._is_new_version:
+            return self.options.get_safe("with_otlp_grpc") or self.options.get_safe("with_otlp_http")
+        return self.options.with_otlp
+
+    @property
+    def _with_http_client_curl(self):
+        return (
+            self.options.get_safe("with_otlp_http")
+            or self.options.with_zipkin
+            or self.options.with_elasticsearch
+        )
 
     def requirements(self):
         if self.options.with_gsl:
@@ -105,11 +123,11 @@ class OpenTelemetryCppConan(ConanFile):
         if self.options.with_abseil:
             self.requires("abseil/20220623.0")
 
-        if self.options.with_otlp:
+        if self._needs_proto:
             self.requires("protobuf/3.21.4")
             if Version(self.version) <= "1.4.1":
                 self.requires("opentelemetry-proto/0.11.0")
-            elif Version(self.version) >= "1.23.0":
+            elif self._is_new_version:
                 self.requires("opentelemetry-proto/1.7.0")
             else:
                 self.requires("opentelemetry-proto/0.19.0")
@@ -118,19 +136,13 @@ class OpenTelemetryCppConan(ConanFile):
                 self.requires("grpc/1.50.1@milvus/dev")
 
         if (
-            self.options.with_zipkin
-            or self.options.with_elasticsearch
-            or self.options.get_safe("with_otlp_http")
+            self._with_http_client_curl
             or self.options.with_etw
         ):
             self.requires("nlohmann_json/3.11.2")
             self.requires("openssl/1.1.1t")
 
-        if (
-            self.options.with_zipkin
-            or self.options.with_elasticsearch
-            or self.options.get_safe("with_otlp_http")
-        ):
+        if self._with_http_client_curl:
             self.requires("libcurl/7.87.0")
 
         if self.options.with_prometheus:
@@ -138,7 +150,6 @@ class OpenTelemetryCppConan(ConanFile):
 
         if self.options.get_safe("with_jaeger"):
             self.requires("thrift/0.17.0")
-
             if Version(self.version) >= "1.3.0":
                 self.requires("boost/1.81.0")
 
@@ -160,32 +171,22 @@ class OpenTelemetryCppConan(ConanFile):
                 f"{self.ref} supports building shared libraries only on Linux"
             )
 
-        if self.options.get_safe("with_otlp_grpc") and not self.options.with_otlp:
-            raise ConanInvalidConfiguration(
-                "Option 'with_otlp_grpc' requires 'with_otlp'"
-            )
-
-        if self.options.get_safe("with_otlp_http") and not self.options.with_otlp:
-            raise ConanInvalidConfiguration(
-                "Option 'with_otlp_http' requires 'with_otlp'"
-            )
-
         if self.options.get_safe("with_otlp_grpc"):
-            if not self.dependencies["grpc"].options.cpp_plugin:
+            if self._needs_proto and not self.dependencies["grpc"].options.cpp_plugin:
                 raise ConanInvalidConfiguration(
                     f"{self.ref} requires grpc with cpp_plugin=True"
                 )
 
-        boost_required_comp = any(
-            self.dependencies["boost"].options.get_safe(f"without_{boost_comp}", True)
-            for boost_comp in self._required_boost_components
-        )
-
-        if boost_required_comp:
-            raise ConanInvalidConfiguration(
-                f"{self.ref} requires boost with these components: "
-                f"{', '.join(self._required_boost_components)}"
+        if self._required_boost_components:
+            boost_required_comp = any(
+                self.dependencies["boost"].options.get_safe(f"without_{boost_comp}", True)
+                for boost_comp in self._required_boost_components
             )
+            if boost_required_comp:
+                raise ConanInvalidConfiguration(
+                    f"{self.ref} requires boost with these components: "
+                    f"{', '.join(self._required_boost_components)}"
+                )
 
     def build_requirements(self):
         self.tool_requires("protobuf/3.21.4")
@@ -212,49 +213,54 @@ class OpenTelemetryCppConan(ConanFile):
             strip_root=True,
         )
 
+    @property
+    def _stl_value(self):
+        """Map with_stl option to the correct WITH_STL cmake value.
+        For v1.22.0+ WITH_STL is a string (CXXnn/ON/OFF).
+        For older versions it is a boolean."""
+        if not self.options.with_stl:
+            return False if not self._is_new_version else "OFF"
+        if not self._is_new_version:
+            return True
+        cppstd = str(self.settings.get_safe("compiler.cppstd") or "")
+        cppstd_num = cppstd.replace("gnu", "")
+        stl_map = {"14": "CXX14", "17": "CXX17", "20": "CXX20", "23": "CXX23"}
+        return stl_map.get(cppstd_num, "CXX17")
+
     def generate(self):
         tc = CMakeToolchain(self)
 
         tc.variables["BUILD_TESTING"] = False
         tc.variables["BUILD_BENCHMARK"] = False
         tc.variables["WITH_EXAMPLES"] = False
+        tc.variables["WITH_FUNC_TESTS"] = False
 
         tc.variables["WITH_NO_DEPRECATED_CODE"] = self.options.with_no_deprecated_code
+        tc.variables["WITH_STL"] = self._stl_value
         tc.variables["WITH_GSL"] = self.options.with_gsl
         tc.variables["WITH_ABSEIL"] = self.options.with_abseil
+        tc.variables["WITH_OTLP_GRPC"] = self.options.get_safe("with_otlp_grpc")
+        tc.variables["WITH_OTLP_HTTP"] = self.options.get_safe("with_otlp_http")
         tc.variables["WITH_ZIPKIN"] = self.options.with_zipkin
         tc.variables["WITH_PROMETHEUS"] = self.options.with_prometheus
         tc.variables["WITH_ELASTICSEARCH"] = self.options.with_elasticsearch
         tc.variables["WITH_ZPAGES"] = self.options.with_zpages
         tc.variables["WITH_NO_GETENV"] = self.options.with_no_getenv
         tc.variables["WITH_ETW"] = self.options.with_etw
-        tc.variables["WITH_OTLP_GRPC"] = self.options.get_safe("with_otlp_grpc")
-        tc.variables["WITH_OTLP_HTTP"] = self.options.get_safe("with_otlp_http")
+        tc.variables["WITH_ASYNC_EXPORT_PREVIEW"] = self.options.with_async_export_preview
+        tc.variables["WITH_METRICS_EXEMPLAR_PREVIEW"] = self.options.with_metrics_exemplar_preview
 
-        if Version(self.version) >= "1.23.0":
-            # WITH_STL became a string option in v1.23.0
-            # Use "CXX17" (not "ON") to avoid C++20 heterogeneous lookup issues
-            tc.variables["WITH_STL"] = "CXX17" if self.options.with_stl else "OFF"
-            # WITH_OTLP umbrella option removed; individual options control the build
-            # WITH_JAEGER and WITH_LOGS_PREVIEW removed
-            tc.variables[
-                "WITH_ASYNC_EXPORT_PREVIEW"
-            ] = self.options.with_async_export_preview
-            tc.variables[
-                "WITH_METRICS_EXEMPLAR_PREVIEW"
-            ] = self.options.with_metrics_exemplar_preview
+        if self._is_new_version:
+            # v1.22.0+ supports OTELCPP_PROTO_PATH for proto resolution
+            if self._needs_proto:
+                protos_path = self.deps_user_info["opentelemetry-proto"].proto_root.replace("\\", "/")
+                tc.variables["OTELCPP_PROTO_PATH"] = protos_path
             tc.variables["FETCHCONTENT_FULLY_DISCONNECTED"] = True
+            tc.variables["OPENTELEMETRY_INSTALL"] = True
         else:
-            tc.variables["WITH_STL"] = self.options.with_stl
             tc.variables["WITH_OTLP"] = self.options.with_otlp
             tc.variables["WITH_JAEGER"] = self.options.with_jaeger
             tc.variables["WITH_LOGS_PREVIEW"] = self.options.with_logs_preview
-            tc.variables[
-                "WITH_ASYNC_EXPORT_PREVIEW"
-            ] = self.options.with_async_export_preview
-            tc.variables[
-                "WITH_METRICS_EXEMPLAR_PREVIEW"
-            ] = self.options.with_metrics_exemplar_preview
 
         tc.generate()
 
@@ -262,21 +268,11 @@ class OpenTelemetryCppConan(ConanFile):
         tc.generate()
 
     def _patch_sources(self):
-        protos_path = self.deps_user_info["opentelemetry-proto"].proto_root.replace(
-            "\\", "/"
-        )
-        protos_cmake_path = os.path.join(
-            self.source_folder, "cmake", "opentelemetry-proto.cmake"
-        )
-
-        if Version(self.version) >= "1.23.0":
-            # v1.23.0 uses FetchContent for proto dependency.
-            # Replace the submodule path and force the submodule branch.
-            replace_in_file(
-                self,
-                protos_cmake_path,
-                'set(OPENTELEMETRY_PROTO_SUBMODULE "${opentelemetry-cpp_SOURCE_DIR}/third_party/opentelemetry-proto")',
-                f'set(OPENTELEMETRY_PROTO_SUBMODULE "{protos_path}")',
+        if self._is_new_version:
+            # v1.22.0+ uses FetchContent for proto. Patch the submodule fallback
+            # so it picks up the conan-provided proto path.
+            protos_cmake_path = os.path.join(
+                self.source_folder, "cmake", "opentelemetry-proto.cmake"
             )
             replace_in_file(
                 self,
@@ -284,22 +280,17 @@ class OpenTelemetryCppConan(ConanFile):
                 "elseif(EXISTS ${OPENTELEMETRY_PROTO_SUBMODULE}/.git)",
                 "elseif(1)",
             )
-            # Fix gRPC linking: make it unconditional for proto_grpc
-            # (conan may report gRPC as STATIC or UNKNOWN type)
             replace_in_file(
                 self,
                 protos_cmake_path,
-                'if(grpc_lib_type STREQUAL "SHARED_LIBRARY")\n    target_link_libraries(opentelemetry_proto_grpc PUBLIC gRPC::grpc++)\n  endif()',
-                "target_link_libraries(opentelemetry_proto_grpc PUBLIC gRPC::grpc++)",
-            )
-            # Add gRPC linking to opentelemetry_proto for conan compatibility
-            replace_in_file(
-                self,
-                protos_cmake_path,
-                "if(TARGET protobuf::libprotobuf)\n  target_link_libraries(opentelemetry_proto PUBLIC protobuf::libprotobuf)",
-                "if(TARGET gRPC::grpc++)\n  target_link_libraries(opentelemetry_proto PUBLIC gRPC::grpc++)\nendif()\n\nif(TARGET protobuf::libprotobuf)\n  target_link_libraries(opentelemetry_proto PUBLIC protobuf::libprotobuf)",
+                "SOURCE_DIR ${OPENTELEMETRY_PROTO_SUBMODULE}",
+                f"SOURCE_DIR ${{OTELCPP_PROTO_PATH}}",
             )
         else:
+            protos_path = self.deps_user_info["opentelemetry-proto"].proto_root.replace("\\", "/")
+            protos_cmake_path = os.path.join(
+                self.source_folder, "cmake", "opentelemetry-proto.cmake"
+            )
             if Version(self.version) >= "1.1.0":
                 replace_in_file(
                     self,
@@ -347,6 +338,7 @@ class OpenTelemetryCppConan(ConanFile):
         cmake = CMake(self)
         cmake.install()
         rmdir(self, os.path.join(self.package_folder, "lib", "cmake"))
+        rmdir(self, os.path.join(self.package_folder, "lib", "pkgconfig"))
         self._create_cmake_module_variables(
             os.path.join(self.package_folder, self._otel_cmake_variables_path)
         )
@@ -376,7 +368,6 @@ class OpenTelemetryCppConan(ConanFile):
     @property
     def _otel_libraries(self):
         libraries = [
-            self._http_client_name,
             "opentelemetry_common",
             "opentelemetry_exporter_in_memory",
             "opentelemetry_exporter_ostream_span",
@@ -385,13 +376,14 @@ class OpenTelemetryCppConan(ConanFile):
             "opentelemetry_version",
         ]
 
-        if self.options.with_otlp:
-            libraries.extend(
-                [
-                    "opentelemetry_proto",
-                    "opentelemetry_otlp_recordable",
-                ]
-            )
+        if self._with_http_client_curl:
+            libraries.append(self._http_client_name)
+
+        if self._needs_proto:
+            libraries.extend([
+                "opentelemetry_proto",
+                "opentelemetry_otlp_recordable",
+            ])
 
             if self.options.get_safe("with_otlp_grpc"):
                 libraries.append("opentelemetry_exporter_otlp_grpc")
@@ -402,9 +394,7 @@ class OpenTelemetryCppConan(ConanFile):
                 if Version(self.version) >= "1.7.0":
                     libraries.append("opentelemetry_exporter_otlp_grpc_client")
 
-                if Version(self.version) >= "1.23.0":
-                    # In v1.23.0+, proto_grpc is a separate library and
-                    # logs are always built (not preview)
+                if self._is_new_version:
                     libraries.append("opentelemetry_proto_grpc")
                     libraries.append("opentelemetry_exporter_otlp_grpc_log")
                 elif self.options.get_safe("with_logs_preview"):
@@ -419,8 +409,7 @@ class OpenTelemetryCppConan(ConanFile):
                 if Version(self.version) >= "1.5.0":
                     libraries.append("opentelemetry_exporter_otlp_http_metric")
 
-                if Version(self.version) >= "1.23.0":
-                    # Logs are always built in v1.23.0+
+                if self._is_new_version:
                     libraries.append("opentelemetry_exporter_otlp_http_log")
                 elif self.options.get_safe("with_logs_preview"):
                     libraries.append("opentelemetry_exporter_otlp_http_log")
@@ -429,7 +418,7 @@ class OpenTelemetryCppConan(ConanFile):
             libraries.append("opentelemetry_exporter_prometheus")
 
         if self.options.with_elasticsearch:
-            if Version(self.version) >= "1.23.0" or self.options.get_safe("with_logs_preview"):
+            if self._is_new_version or self.options.get_safe("with_logs_preview"):
                 libraries.append("opentelemetry_exporter_elasticsearch_logs")
 
         if self.options.with_zipkin:
@@ -444,21 +433,16 @@ class OpenTelemetryCppConan(ConanFile):
         if Version(self.version) >= "1.4.0":
             libraries.append("opentelemetry_exporter_ostream_metrics")
 
-        if Version(self.version) >= "1.23.0":
-            # Logs are always built in v1.23.0+
-            libraries.extend(
-                [
-                    "opentelemetry_logs",
-                    "opentelemetry_exporter_ostream_logs",
-                ]
-            )
+        if self._is_new_version:
+            libraries.extend([
+                "opentelemetry_logs",
+                "opentelemetry_exporter_ostream_logs",
+            ])
         elif self.options.get_safe("with_logs_preview"):
-            libraries.extend(
-                [
-                    "opentelemetry_logs",
-                    "opentelemetry_exporter_ostream_logs",
-                ]
-            )
+            libraries.extend([
+                "opentelemetry_logs",
+                "opentelemetry_exporter_ostream_logs",
+            ])
 
         if self.settings.os == "Windows" and self.options.with_etw:
             libraries.append("opentelemetry_exporter_etw")
@@ -476,18 +460,14 @@ class OpenTelemetryCppConan(ConanFile):
                 "cmake_find_package_multi"
             ] = self._otel_build_modules
 
-        self.cpp_info.components["opentelemetry_resources"].requires.extend(
-            [
-                "opentelemetry_common",
-            ]
-        )
+        self.cpp_info.components["opentelemetry_resources"].requires.extend([
+            "opentelemetry_common",
+        ])
 
-        self.cpp_info.components["opentelemetry_trace"].requires.extend(
-            [
-                "opentelemetry_common",
-                "opentelemetry_resources",
-            ]
-        )
+        self.cpp_info.components["opentelemetry_trace"].requires.extend([
+            "opentelemetry_common",
+            "opentelemetry_resources",
+        ])
 
         self.cpp_info.components["opentelemetry_exporter_ostream_span"].requires.append(
             "opentelemetry_trace",
@@ -495,31 +475,22 @@ class OpenTelemetryCppConan(ConanFile):
 
         self.cpp_info.components["opentelemetry_exporter_in_memory"].libs = []
 
-        if Version(self.version) >= "1.23.0":
-            # Logs are always built in v1.23.0+
-            self.cpp_info.components["opentelemetry_logs"].requires.extend(
-                [
-                    "opentelemetry_resources",
-                    "opentelemetry_common",
-                ]
-            )
+        if self._is_new_version:
+            self.cpp_info.components["opentelemetry_logs"].requires.extend([
+                "opentelemetry_resources",
+                "opentelemetry_common",
+            ])
             self.cpp_info.components[
                 "opentelemetry_exporter_ostream_logs"
-            ].requires.append(
-                "opentelemetry_logs",
-            )
+            ].requires.append("opentelemetry_logs")
         elif self.options.get_safe("with_logs_preview"):
-            self.cpp_info.components["opentelemetry_logs"].requires.extend(
-                [
-                    "opentelemetry_resources",
-                    "opentelemetry_common",
-                ]
-            )
+            self.cpp_info.components["opentelemetry_logs"].requires.extend([
+                "opentelemetry_resources",
+                "opentelemetry_common",
+            ])
             self.cpp_info.components[
                 "opentelemetry_exporter_ostream_logs"
-            ].requires.append(
-                "opentelemetry_logs",
-            )
+            ].requires.append("opentelemetry_logs")
 
         if self.settings.os in ("Linux", "FreeBSD"):
             self.cpp_info.components["opentelemetry_common"].system_libs.extend(
@@ -545,127 +516,99 @@ class OpenTelemetryCppConan(ConanFile):
                 "abseil::abseil"
             )
 
-        if self.options.with_otlp:
-            self.cpp_info.components["opentelemetry_proto"].requires.extend(
-                [
-                    "opentelemetry-proto::opentelemetry-proto",
-                    "protobuf::protobuf",
-                ]
-            )
+        if self._needs_proto:
+            self.cpp_info.components["opentelemetry_proto"].requires.extend([
+                "opentelemetry-proto::opentelemetry-proto",
+                "protobuf::protobuf",
+            ])
 
-            self.cpp_info.components["opentelemetry_otlp_recordable"].requires.extend(
-                [
-                    "opentelemetry_proto",
-                    "opentelemetry_resources",
-                    "opentelemetry_trace",
-                ]
-            )
+            self.cpp_info.components["opentelemetry_otlp_recordable"].requires.extend([
+                "opentelemetry_proto",
+                "opentelemetry_resources",
+                "opentelemetry_trace",
+            ])
+
+            if self._is_new_version:
+                self.cpp_info.components["opentelemetry_otlp_recordable"].requires.append(
+                    "opentelemetry_logs"
+                )
 
         if self.options.get_safe("with_otlp_grpc"):
-            if Version(self.version) >= "1.23.0":
-                # v1.23.0 has separate proto_grpc library
-                self.cpp_info.components[
-                    "opentelemetry_proto_grpc"
-                ].requires.extend(
-                    [
-                        "opentelemetry_proto",
-                        "grpc::grpc++",
-                    ]
-                )
-
+            if self._is_new_version:
                 self.cpp_info.components[
                     "opentelemetry_exporter_otlp_grpc_client"
-                ].requires.extend(
-                    [
-                        "grpc::grpc++",
-                        "opentelemetry_proto",
-                    ]
-                )
+                ].requires.extend([
+                    "grpc::grpc++",
+                    "opentelemetry_proto",
+                    "opentelemetry_proto_grpc",
+                ])
 
                 self.cpp_info.components[
                     "opentelemetry_exporter_otlp_grpc"
-                ].requires.extend(
-                    [
-                        "opentelemetry_otlp_recordable",
-                        "opentelemetry_exporter_otlp_grpc_client",
-                    ]
-                )
+                ].requires.extend([
+                    "opentelemetry_otlp_recordable",
+                    "opentelemetry_exporter_otlp_grpc_client",
+                ])
 
                 self.cpp_info.components[
                     "opentelemetry_exporter_otlp_grpc_metrics"
-                ].requires.extend(
-                    [
-                        "opentelemetry_otlp_recordable",
-                        "opentelemetry_exporter_otlp_grpc_client",
-                    ]
-                )
+                ].requires.extend([
+                    "opentelemetry_otlp_recordable",
+                    "opentelemetry_exporter_otlp_grpc_client",
+                ])
 
                 self.cpp_info.components[
                     "opentelemetry_exporter_otlp_grpc_log"
-                ].requires.extend(
-                    [
-                        "opentelemetry_otlp_recordable",
-                        "opentelemetry_exporter_otlp_grpc_client",
-                    ]
-                )
+                ].requires.extend([
+                    "opentelemetry_otlp_recordable",
+                    "opentelemetry_exporter_otlp_grpc_client",
+                ])
             else:
                 if Version(self.version) >= "1.5.0" and Version(self.version) < "1.7.0":
                     self.cpp_info.components[
                         "opentelemetry_exporter_otlp_grpc_metrics"
-                    ].requires.extend(
-                        [
-                            "grpc::grpc++",
-                            "opentelemetry_otlp_recordable",
-                        ]
-                    )
+                    ].requires.extend([
+                        "grpc::grpc++",
+                        "opentelemetry_otlp_recordable",
+                    ])
 
                 if Version(self.version) <= "1.7.0":
                     self.cpp_info.components[
                         "opentelemetry_exporter_otlp_grpc"
-                    ].requires.extend(
-                        [
-                            "grpc::grpc++",
-                            "opentelemetry_otlp_recordable",
-                        ]
-                    )
+                    ].requires.extend([
+                        "grpc::grpc++",
+                        "opentelemetry_otlp_recordable",
+                    ])
 
                 if Version(self.version) >= "1.7.0":
                     self.cpp_info.components[
                         "opentelemetry_exporter_otlp_grpc_client"
-                    ].requires.extend(
-                        [
-                            "grpc::grpc++",
-                            "opentelemetry_proto",
-                        ]
-                    )
+                    ].requires.extend([
+                        "grpc::grpc++",
+                        "opentelemetry_proto",
+                    ])
 
                     self.cpp_info.components[
                         "opentelemetry_exporter_otlp_grpc"
-                    ].requires.extend(
-                        [
-                            "opentelemetry_otlp_recordable",
-                            "opentelemetry_exporter_otlp_grpc_client",
-                        ]
-                    )
+                    ].requires.extend([
+                        "opentelemetry_otlp_recordable",
+                        "opentelemetry_exporter_otlp_grpc_client",
+                    ])
 
                     self.cpp_info.components[
                         "opentelemetry_exporter_otlp_grpc_metrics"
-                    ].requires.extend(
-                        [
-                            "opentelemetry_otlp_recordable",
-                            "opentelemetry_exporter_otlp_grpc_client",
-                        ]
-                    )
+                    ].requires.extend([
+                        "opentelemetry_otlp_recordable",
+                        "opentelemetry_exporter_otlp_grpc_client",
+                    ])
 
                 if self.options.get_safe("with_logs_preview"):
                     self.cpp_info.components[
                         "opentelemetry_exporter_otlp_grpc_log"
-                    ].requires.extend(
-                        [
-                            "opentelemetry_otlp_recordable",
-                            "opentelemetry_exporter_otlp_grpc_client",
-                        ]
-                    )
+                    ].requires.extend([
+                        "opentelemetry_otlp_recordable",
+                        "opentelemetry_exporter_otlp_grpc_client",
+                    ])
 
         if (
             self.options.get_safe("with_otlp_http")
@@ -679,75 +622,53 @@ class OpenTelemetryCppConan(ConanFile):
         if self.options.get_safe("with_otlp_http"):
             self.cpp_info.components[
                 "opentelemetry_exporter_otlp_http_client"
-            ].requires.extend(
-                [
-                    self._http_client_name,
-                    "nlohmann_json::nlohmann_json",
-                    "opentelemetry_proto",
-                ]
-            )
+            ].requires.extend([
+                self._http_client_name,
+                "nlohmann_json::nlohmann_json",
+                "opentelemetry_proto",
+            ])
 
             self.cpp_info.components[
                 "opentelemetry_exporter_otlp_http"
-            ].requires.extend(
-                [
-                    "opentelemetry_otlp_recordable",
-                    "opentelemetry_exporter_otlp_http_client",
-                ]
-            )
+            ].requires.extend([
+                "opentelemetry_otlp_recordable",
+                "opentelemetry_exporter_otlp_http_client",
+            ])
 
             if Version(self.version) >= "1.5.0":
                 self.cpp_info.components[
                     "opentelemetry_exporter_otlp_http_metric"
-                ].requires.extend(
-                    [
-                        "opentelemetry_otlp_recordable",
-                        "opentelemetry_exporter_otlp_http_client",
-                    ]
-                )
+                ].requires.extend([
+                    "opentelemetry_otlp_recordable",
+                    "opentelemetry_exporter_otlp_http_client",
+                ])
 
-            if Version(self.version) >= "1.23.0":
+            if self._is_new_version or self.options.get_safe("with_logs_preview"):
                 self.cpp_info.components[
                     "opentelemetry_exporter_otlp_http_log"
-                ].requires.extend(
-                    [
-                        "opentelemetry_otlp_recordable",
-                        "opentelemetry_exporter_otlp_http_client",
-                    ]
-                )
-            elif self.options.get_safe("with_logs_preview"):
-                self.cpp_info.components[
-                    "opentelemetry_exporter_otlp_http_log"
-                ].requires.extend(
-                    [
-                        "opentelemetry_otlp_recordable",
-                        "opentelemetry_exporter_otlp_http_client",
-                    ]
-                )
+                ].requires.extend([
+                    "opentelemetry_otlp_recordable",
+                    "opentelemetry_exporter_otlp_http_client",
+                ])
 
         if self.options.with_zipkin:
             self.cpp_info.components[
                 "opentelemetry_exporter_zipkin_trace"
-            ].requires.extend(
-                [
-                    self._http_client_name,
-                    "nlohmann_json::nlohmann_json",
-                    "opentelemetry_trace",
-                ]
-            )
+            ].requires.extend([
+                self._http_client_name,
+                "nlohmann_json::nlohmann_json",
+                "opentelemetry_trace",
+            ])
 
         if self.options.get_safe("with_jaeger"):
             self.cpp_info.components[
                 "opentelemetry_exporter_jaeger_trace"
-            ].requires.extend(
-                [
-                    self._http_client_name,
-                    "openssl::openssl",
-                    "opentelemetry_resources",
-                    "thrift::thrift",
-                ]
-            )
-
+            ].requires.extend([
+                self._http_client_name,
+                "openssl::openssl",
+                "opentelemetry_resources",
+                "thrift::thrift",
+            ])
             if Version(self.version) >= "1.3.0":
                 self.cpp_info.components[
                     "opentelemetry_exporter_jaeger_trace"
