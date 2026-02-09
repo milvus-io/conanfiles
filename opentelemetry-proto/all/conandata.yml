@@ -1,4 +1,7 @@
 sources:
+  "1.7.0":
+    url: "https://github.com/open-telemetry/opentelemetry-proto/archive/v1.7.0.tar.gz"
+    sha256: "11330d850f5e24d34c4246bc8cb21fcd311e7565d219195713455a576bb11bed"
   "1.3.0":
     url: "https://github.com/open-telemetry/opentelemetry-proto/archive/v1.3.0.tar.gz"
     sha256: "73a678b0ff7a29b581381566a2230fe2a00b864608786c99c050a4492e2bbafc"
