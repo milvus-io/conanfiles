@@ -104,7 +104,7 @@ class GrpcConan(ConanFile):
         # abseil is public. See https://github.com/conan-io/conan-center-index/pull/17284#issuecomment-1526082638
         if Version(self.version) >= "1.62.0":
             self.requires("protobuf/5.27.0", transitive_headers=True)
-            self.requires("abseil/[>=20240116.1 <20240117.0]", transitive_headers=True)
+            self.requires("abseil/[>=20240116.1 <=20250127.0]", transitive_headers=True)
         else:
             self.requires("abseil/[>=20230125.3 <=20230802.1]", transitive_headers=True)
             self.requires("protobuf/3.21.12", transitive_headers=True)
@@ -176,6 +176,9 @@ class GrpcConan(ConanFile):
         tc.cache_variables["gRPC_SSL_PROVIDER"] = "package"
         tc.cache_variables["gRPC_PROTOBUF_PROVIDER"] = "package"
         tc.cache_variables["gRPC_ABSL_PROVIDER"] = "package"
+
+        if Version(self.version) >= "1.62.0":
+            tc.cache_variables["gRPC_DOWNLOAD_ARCHIVES"] = False
 
         tc.cache_variables["gRPC_BUILD_GRPC_CPP_PLUGIN"] = self.options.cpp_plugin
         tc.cache_variables["gRPC_BUILD_GRPC_CSHARP_PLUGIN"] = self.options.csharp_plugin
