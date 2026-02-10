@@ -77,6 +77,18 @@ class OpenTelemetryCppConan(ConanFile):
         return 14
 
     @property
+    def _protobuf_version(self):
+        return "5.27.0" if self._is_new_version else "3.21.4"
+
+    @property
+    def _grpc_version(self):
+        return "1.67.1@milvus/dev" if self._is_new_version else "1.50.1@milvus/dev"
+
+    @property
+    def _abseil_version(self):
+        return "20250127.0" if self._is_new_version else "20220623.0"
+
+    @property
     def _is_new_version(self):
         """v1.22.0+ removed Jaeger, WITH_OTLP umbrella, WITH_LOGS_PREVIEW
         and switched to FetchContent for proto."""
@@ -121,10 +133,10 @@ class OpenTelemetryCppConan(ConanFile):
             self.requires("ms-gsl/4.0.0")
 
         if self.options.with_abseil:
-            self.requires("abseil/20220623.0")
+            self.requires(f"abseil/{self._abseil_version}")
 
         if self._needs_proto:
-            self.requires("protobuf/3.21.4")
+            self.requires(f"protobuf/{self._protobuf_version}")
             if Version(self.version) <= "1.4.1":
                 self.requires("opentelemetry-proto/0.11.0")
             elif self._is_new_version:
@@ -133,7 +145,7 @@ class OpenTelemetryCppConan(ConanFile):
                 self.requires("opentelemetry-proto/0.19.0")
 
             if self.options.get_safe("with_otlp_grpc"):
-                self.requires("grpc/1.50.1@milvus/dev")
+                self.requires(f"grpc/{self._grpc_version}")
 
         if (
             self._with_http_client_curl
@@ -143,7 +155,7 @@ class OpenTelemetryCppConan(ConanFile):
             self.requires("openssl/1.1.1t")
 
         if self._with_http_client_curl:
-            self.requires("libcurl/7.87.0")
+            self.requires("libcurl/7.86.0")
 
         if self.options.with_prometheus:
             self.requires("prometheus-cpp/1.1.0")
@@ -189,8 +201,8 @@ class OpenTelemetryCppConan(ConanFile):
                 )
 
     def build_requirements(self):
-        self.tool_requires("protobuf/3.21.4")
-        self.tool_requires("grpc/1.50.1@milvus/dev")
+        self.tool_requires(f"protobuf/{self._protobuf_version}")
+        self.tool_requires(f"grpc/{self._grpc_version}")
 
     def _create_cmake_module_variables(self, module_file):
         content = textwrap.dedent(
