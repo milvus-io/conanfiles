@@ -12,9 +12,9 @@ on:
         required: true
       
       conanfile_path:
-        description: 'the conanfile.py path of the package '
-        required: true
-        default: 'all/conanfile.py'
+        description: 'override conanfile.py path (auto-resolved from config.yml if empty)'
+        required: false
+        default: ''
 
       repository:
         description: 'Choose Artifactory repository'
@@ -34,19 +34,46 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CONAN_REVISIONS_ENABLED: 1
-      # the path of the conanfile.py
-      PACKAGE_RECIPE_PATH: ${{ github.event.inputs.package }}/${{ github.event.inputs.conanfile_path }}
-      # the package reference
       PACKAGE_REF: ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@${{ github.event.inputs.user_channel }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13' 
+          python-version: '3.13'
+
+      - name: Resolve conanfile path from config.yml
+        id: resolve
+        run: |
+          PACKAGE="${{ github.event.inputs.package }}"
+          VERSION="${{ github.event.inputs.version }}"
+          OVERRIDE="${{ github.event.inputs.conanfile_path }}"
+
+          if [ -n "$OVERRIDE" ]; then
+            FOLDER=$(dirname "$OVERRIDE")
+          else
+            CONFIG="${PACKAGE}/config.yml"
+            if [ ! -f "$CONFIG" ]; then
+              echo "::error::config.yml not found at ${CONFIG}"
+              exit 1
+            fi
+            FOLDER=$(python3 -c "
+import yaml, sys
+with open('${CONFIG}') as f:
+    config = yaml.safe_load(f)
+folder = config.get('versions', {}).get('${VERSION}', {}).get('folder')
+if not folder:
+    print(f'::error::version ${VERSION} not found in ${CONFIG}', file=sys.stderr)
+    sys.exit(1)
+print(folder)
+")
+          fi
+
+          echo "recipe_path=${PACKAGE}/${FOLDER}/conanfile.py" >> "$GITHUB_OUTPUT"
+          echo "Resolved recipe path: ${PACKAGE}/${FOLDER}/conanfile.py"
 
       - name: Install Conan
         run: |
-          pip install --user conan==1.65.0
+          pip install --user conan==1.65.0 pyyaml
           conan --version
 
       - name: Configure Conan remote
@@ -66,7 +93,7 @@ jobs:
       - name: build a package
         run: |
 
-          conan create $PACKAGE_RECIPE_PATH $PACKAGE_REF \
+          conan create ${{ steps.resolve.outputs.recipe_path }} $PACKAGE_REF \
             --build=missing \
             -s compiler=gcc \
             -s compiler.version=11 \
