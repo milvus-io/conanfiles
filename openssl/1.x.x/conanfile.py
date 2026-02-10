@@ -1,6 +1,6 @@
 from conan import ConanFile, conan_version
 from conan.errors import ConanInvalidConfiguration
-from conan.tools.apple import is_apple_os, XCRun
+from conan.tools.apple import fix_apple_shared_install_name, is_apple_os, XCRun
 from conan.tools.build import cross_building
 from conan.tools.env import Environment, VirtualBuildEnv
 from conan.tools.files import (
@@ -163,6 +163,8 @@ class OpenSSLConan(ConanFile):
             tc.extra_cflags = [f"-isysroot {XCRun(self).sdk_path}"]
             tc.extra_cxxflags = [f"-isysroot {XCRun(self).sdk_path}"]
             tc.extra_ldflags = [f"-isysroot {XCRun(self).sdk_path}"]
+        if is_apple_os(self):
+            tc.extra_ldflags.append("-Wl,-headerpad_max_install_names")
         env = tc.environment()
         env.define("PERL", self._perl)
         tc.generate(env)
@@ -556,6 +558,9 @@ class OpenSSLConan(ConanFile):
                         continue
                     if file.endswith(".a"):
                         os.unlink(os.path.join(libdir, file))
+
+            if is_apple_os(self):
+                fix_apple_shared_install_name(self)
 
             rmdir(self, os.path.join(self.package_folder, "lib", "pkgconfig"))
 

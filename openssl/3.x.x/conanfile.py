@@ -423,6 +423,8 @@ class OpenSSLConan(ConanFile):
             env.define_path("CROSS_SDK", os.path.basename(xcrun.sdk_path))
             env.define_path("CROSS_TOP", os.path.dirname(os.path.dirname(xcrun.sdk_path)))
 
+        if is_apple_os(self):
+            tc.extra_ldflags.append("-Wl,-headerpad_max_install_names")
         self._create_targets(tc.cflags, tc.cxxflags, tc.defines, tc.ldflags)
         tc.generate(env)
 
