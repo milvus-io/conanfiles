@@ -78,7 +78,7 @@ class OpenTelemetryCppConan(ConanFile):
 
     @property
     def _protobuf_version(self):
-        return "5.27.0" if self._is_new_version else "3.21.4"
+        return "5.27.0@milvus/dev" if self._is_new_version else "3.21.4"
 
     @property
     def _grpc_version(self):
