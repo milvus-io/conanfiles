@@ -104,7 +104,7 @@ class GrpcConan(ConanFile):
         # abseil is public. See https://github.com/conan-io/conan-center-index/pull/17284#issuecomment-1526082638
         if Version(self.version) >= "1.62.0":
             self.requires("protobuf/5.27.0", transitive_headers=True)
-            self.requires("abseil/[>=20240116.1 <=20250127.0]", transitive_headers=True)
+            self.requires("abseil/20250127.0", transitive_headers=True)
         else:
             self.requires("abseil/[>=20230125.3 <=20230802.1]", transitive_headers=True)
             self.requires("protobuf/3.21.12", transitive_headers=True)
