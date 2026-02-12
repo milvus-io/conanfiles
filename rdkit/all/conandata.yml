@@ -1,0 +1,4 @@
+sources:
+  "2025.09.1":
+    url: "https://github.com/862103595/rdkit/archive/refs/tags/v2025.09.1-milvus.tar.gz"
+    sha256: "f3edf0d58fdbe84e2b24550b958daa5ae6b3876714772cf5ffaddffea6c8fe51"
