@@ -67,7 +67,7 @@ class ThriftConan(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        self.requires("boost/1.85.0", transitive_headers=True)
+        self.requires("boost/[>=1.78.0 <=1.85.0]", transitive_headers=True)
         if self.options.with_openssl:
             self.requires("openssl/[>=1.1 <4]")
         if self.options.with_zlib:
@@ -204,29 +204,4 @@ class ThriftConan(ConanFile):
             self.cpp_info.components["libthrift_qt5"].requires = ["libthrift", "qt::qtCore"]
 
         bin_path = os.path.join(self.package_folder, "bin")
-        self.output.info(f"Appending PATH env var with : {bin_path}")
-        self.env_info.PATH.append(bin_path)
-
-        # TODO: to remove in conan v2 once cmake_find_package* & pkg_config generators removed
-        self.cpp_info.filenames["cmake_find_package"] = "Thrift"
-        self.cpp_info.filenames["cmake_find_package_multi"] = "Thrift"
-        self.cpp_info.names["cmake_find_package"] = "thrift"
-        self.cpp_info.names["cmake_find_package_multi"] = "thrift"
-        self.cpp_info.names["pkg_config"] = "thrift_conan_do_not_use"
-        self.cpp_info.components["libthrift"].names["cmake_find_package"] = "thrift"
-        self.cpp_info.components["libthrift"].names["cmake_find_package_multi"] = "thrift"
-        if self.options.with_zlib:
-            self.cpp_info.components["libthrift_z"].names["cmake_find_package"] = "thriftz"
-            self.cpp_info.components["libthrift_z"].names["cmake_find_package_multi"] = "thriftz"
-            self.cpp_info.components["libthrift_z"].build_modules["cmake_find_package"] = [self._module_file_rel_path]
-            self.cpp_info.components["libthrift_z"].build_modules["cmake_find_package_multi"] = [self._module_file_rel_path]
-        if self.options.with_libevent:
-            self.cpp_info.components["libthrift_nb"].names["cmake_find_package"] = "thriftnb"
-            self.cpp_info.components["libthrift_nb"].names["cmake_find_package_multi"] = "thriftnb"
-            self.cpp_info.components["libthrift_nb"].build_modules["cmake_find_package"] = [self._module_file_rel_path]
-            self.cpp_info.components["libthrift_nb"].build_modules["cmake_find_package_multi"] = [self._module_file_rel_path]
-        if self.options.with_qt5:
-            self.cpp_info.components["libthrift_qt5"].names["cmake_find_package"] = "thriftqt5"
-            self.cpp_info.components["libthrift_qt5"].names["cmake_find_package_multi"] = "thriftqt5"
-            self.cpp_info.components["libthrift_qt5"].build_modules["cmake_find_package"] = [self._module_file_rel_path]
-            self.cpp_info.components["libthrift_qt5"].build_modules["cmake_find_package_multi"] = [self._module_file_rel_path]
+        self.buildenv_info.prepend_path("PATH", bin_path)

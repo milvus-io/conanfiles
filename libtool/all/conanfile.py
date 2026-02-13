@@ -5,7 +5,7 @@ from conan.tools.env import Environment, VirtualBuildEnv, VirtualRunEnv
 from conan.tools.files import apply_conandata_patches, export_conandata_patches, copy, get, rename, replace_in_file, rmdir
 from conan.tools.gnu import Autotools, AutotoolsToolchain
 from conan.tools.layout import basic_layout
-from conan.tools.microsoft import check_min_vs, is_msvc, unix_path_package_info_legacy
+from conan.tools.microsoft import check_min_vs, is_msvc
 
 import os
 import re
@@ -234,12 +234,8 @@ class LibtoolConan(ConanFile):
         # Define environment variables such that libtool m4 files are seen by Automake
         libtool_aclocal_dir = os.path.join(self._datarootdir, "aclocal")
 
+        self.buildenv_info.prepend_path("PATH", os.path.join(self.package_folder, "bin"))
         self.buildenv_info.append_path("ACLOCAL_PATH", libtool_aclocal_dir)
         self.buildenv_info.append_path("AUTOMAKE_CONAN_INCLUDES", libtool_aclocal_dir)
         self.runenv_info.append_path("ACLOCAL_PATH", libtool_aclocal_dir)
         self.runenv_info.append_path("AUTOMAKE_CONAN_INCLUDES", libtool_aclocal_dir)
-
-        # For Conan 1.x downstream consumers, can be removed once recipe is Conan 1.x only:
-        self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
-        self.env_info.ACLOCAL_PATH.append(unix_path_package_info_legacy(self, libtool_aclocal_dir))
-        self.env_info.AUTOMAKE_CONAN_INCLUDES.append(unix_path_package_info_legacy(self, libtool_aclocal_dir))

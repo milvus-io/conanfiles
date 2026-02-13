@@ -133,7 +133,7 @@ class OpenTelemetryCppConan(ConanFile):
             self.requires("ms-gsl/4.0.0")
 
         if self.options.with_abseil:
-            self.requires(f"abseil/{self._abseil_version}")
+            self.requires(f"abseil/{self._abseil_version}", transitive_headers=True, transitive_libs=True)
 
         if self._needs_proto:
             self.requires(f"protobuf/{self._protobuf_version}")
@@ -265,7 +265,7 @@ class OpenTelemetryCppConan(ConanFile):
         if self._is_new_version:
             # v1.22.0+ supports OTELCPP_PROTO_PATH for proto resolution
             if self._needs_proto:
-                protos_path = self.deps_user_info["opentelemetry-proto"].proto_root.replace("\\", "/")
+                protos_path = self.dependencies["opentelemetry-proto"].conf_info.get("user.opentelemetry-proto:proto_root").replace("\\", "/")
                 tc.variables["OTELCPP_PROTO_PATH"] = protos_path
             tc.variables["FETCHCONTENT_FULLY_DISCONNECTED"] = True
             tc.variables["OPENTELEMETRY_INSTALL"] = True
@@ -299,7 +299,7 @@ class OpenTelemetryCppConan(ConanFile):
                 f"SOURCE_DIR ${{OTELCPP_PROTO_PATH}}",
             )
         else:
-            protos_path = self.deps_user_info["opentelemetry-proto"].proto_root.replace("\\", "/")
+            protos_path = self.dependencies["opentelemetry-proto"].conf_info.get("user.opentelemetry-proto:proto_root").replace("\\", "/")
             protos_cmake_path = os.path.join(
                 self.source_folder, "cmake", "opentelemetry-proto.cmake"
             )
@@ -530,7 +530,6 @@ class OpenTelemetryCppConan(ConanFile):
 
         if self._needs_proto:
             self.cpp_info.components["opentelemetry_proto"].requires.extend([
-                "opentelemetry-proto::opentelemetry-proto",
                 "protobuf::protobuf",
             ])
 

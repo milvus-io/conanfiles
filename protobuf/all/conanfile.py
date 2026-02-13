@@ -310,13 +310,4 @@ class ProtobufConan(ConanFile):
                 if not self.options.shared:
                     self.cpp_info.components["libprotobuf-lite"].requires.extend(["utf8_validity"])
 
-        # TODO: to remove in conan v2 once cmake_find_package* & pkg_config generators removed
-        self.cpp_info.filenames["cmake_find_package"] = "Protobuf"
-        self.cpp_info.filenames["cmake_find_package_multi"] = "protobuf"
-        self.cpp_info.names["pkg_config"] ="protobuf_full_package"
-        for generator in ["cmake_find_package", "cmake_find_package_multi"]:
-            self.cpp_info.components["libprotobuf"].build_modules[generator] = build_modules
-        if self.options.lite:
-            for generator in ["cmake_find_package", "cmake_find_package_multi"]:
-                self.cpp_info.components["libprotobuf-lite"].build_modules[generator] = build_modules
-        self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
+        self.buildenv_info.prepend_path("PATH", os.path.join(self.package_folder, "bin"))
