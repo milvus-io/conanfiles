@@ -84,8 +84,9 @@ class FollyConan(ConanFile):
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.requires("libiberty/9.1.0")
             self.requires("libunwind/1.8.0")
-        if self.settings.os == "Linux":
-            self.requires("liburing/2.6")
+        # liburing removed: liburing 2.6 compat.h redefines __kernel_timespec
+        # conflicting with newer kernel headers on ubuntu-latest runners.
+        # Folly io_uring support is optional.
         # INFO: Folly does not support fmt 11 on MSVC: https://github.com/facebook/folly/issues/2250
         self.requires("fmt/10.2.1", transitive_headers=True, transitive_libs=True)
 
@@ -198,7 +199,7 @@ class FollyConan(ConanFile):
         deps.set_property("libiberty", "cmake_file_name", "Libiberty")
         deps.set_property("libsodium", "cmake_file_name", "Libsodium")
         deps.set_property("libunwind", "cmake_file_name", "LibUnwind")
-        deps.set_property("liburing", "cmake_file_name", "LibUring")
+        # liburing removed due to kernel header conflict
         deps.set_property("lz4", "cmake_file_name", "LZ4")
         deps.set_property("openssl", "cmake_file_name", "OpenSSL")
         deps.set_property("snappy", "cmake_file_name", "Snappy")
@@ -261,7 +262,6 @@ class FollyConan(ConanFile):
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.components["libfolly"].requires.extend(["libiberty::libiberty", "libunwind::libunwind"])
         if self.settings.os == "Linux":
-            self.cpp_info.components["libfolly"].requires.append("liburing::liburing")
             self.cpp_info.components["libfolly"].system_libs.extend(["pthread", "dl", "rt"])
             self.cpp_info.components["libfolly"].defines.extend(["FOLLY_HAVE_ELF", "FOLLY_HAVE_DWARF"])
         elif self.settings.os == "Windows":

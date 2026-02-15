@@ -39,7 +39,7 @@ if (NOT MSVC)
     custom_find_package(LibDwarf LIBDWARF)
 endif()
 if (UNIX AND NOT APPLE)
-    custom_find_package(LibUring LIBURING)
+    # LibUring removed due to kernel header conflict
     custom_find_package(LibUnwind LIBUNWIND)
     custom_find_package(Libiberty LIBIBERTY)
 endif()
