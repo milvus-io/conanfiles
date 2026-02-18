@@ -21,7 +21,8 @@ class LibavrocppConan(ConanFile):
     }
     default_options = {
         "shared": False,
-        "fPIC": True
+        "fPIC": True,
+        "fmt/*:header_only": False,
     }
 
     def config_options(self):
