@@ -471,6 +471,9 @@ class AwsSdkCppConan(ConanFile):
             "toolchains/pkg-config.pc.in",
             "aws-cpp-sdk-core/include/aws/core/VersionConfig.h"
         ]:
+            src_path = os.path.join(self.source_folder, file)
+            if not os.path.exists(src_path):
+                continue
             copy(self, file, src=self.source_folder, dst=os.path.join(self.package_folder, self._res_folder))
             replace_in_file(
                 self, os.path.join(self.package_folder, self._res_folder, file),
@@ -479,12 +482,15 @@ class AwsSdkCppConan(ConanFile):
             )
 
         # avoid getting error from hook
-        rename(self, os.path.join(self.package_folder, self._res_folder, "toolchains", "cmakeProjectConfig.cmake"),
-                     os.path.join(self.package_folder, self._res_folder, "toolchains", "cmakeProjectConf.cmake"))
-        replace_in_file(
-            self, os.path.join(self.package_folder, self._res_folder, "cmake", "utilities.cmake"),
-            "cmakeProjectConfig.cmake", "cmakeProjectConf.cmake",
-        )
+        toolchain_config = os.path.join(self.package_folder, self._res_folder, "toolchains", "cmakeProjectConfig.cmake")
+        if os.path.exists(toolchain_config):
+            rename(self, toolchain_config,
+                         os.path.join(self.package_folder, self._res_folder, "toolchains", "cmakeProjectConf.cmake"))
+            replace_in_file(
+                self, os.path.join(self.package_folder, self._res_folder, "cmake", "utilities.cmake"),
+                "cmakeProjectConfig.cmake", "cmakeProjectConf.cmake",
+                strict=False,
+            )
 
     def package(self):
         copy(self, "LICENSE", src=self.source_folder, dst=os.path.join(self.package_folder, "licenses"))
@@ -503,7 +509,8 @@ class AwsSdkCppConan(ConanFile):
         self.cpp_info.set_property("cmake_file_name", "AWSSDK")
 
         sdk_plugin_conf = os.path.join(self._res_folder, "cmake", "sdk_plugin_conf.cmake")
-        self.cpp_info.set_property("cmake_build_modules", [sdk_plugin_conf])
+        if os.path.exists(os.path.join(self.package_folder, sdk_plugin_conf)):
+            self.cpp_info.set_property("cmake_build_modules", [sdk_plugin_conf])
 
         # core component
         self.cpp_info.components["core"].set_property("cmake_target_name", "AWS::aws-sdk-cpp-core")
