@@ -341,14 +341,29 @@ class AwsSdkCppConan(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        self.requires("aws-c-common/0.8.2")
-        self.requires("aws-c-event-stream/0.2.7")
-        self.requires("aws-checksums/0.1.13")
-        if self._use_aws_crt_cpp:
-            self.requires("aws-c-cal/0.5.13")
-            self.requires("aws-c-http/0.6.13")
-            self.requires("aws-c-io/0.10.20")
-            self.requires("aws-crt-cpp/0.17.23", transitive_headers=True)
+        if Version(self.version) >= "1.11":
+            self.requires("aws-c-common/0.12.5")
+            self.requires("aws-c-event-stream/0.5.7")
+            self.requires("aws-checksums/0.2.6")
+            self.requires("aws-c-cal/0.9.8")
+            self.requires("aws-c-http/0.10.5")
+            self.requires("aws-c-io/0.23.2")
+            self.requires("aws-c-auth/0.9.1")
+            self.requires("aws-c-compression/0.3.1")
+            self.requires("aws-c-mqtt/0.13.3")
+            self.requires("aws-c-sdkutils/0.2.4")
+            self.requires("aws-crt-cpp/0.35.2", transitive_headers=True)
+            if self.options.get_safe("s3-crt"):
+                self.requires("aws-c-s3/0.9.2")
+        else:
+            self.requires("aws-c-common/0.8.2")
+            self.requires("aws-c-event-stream/0.2.7")
+            self.requires("aws-checksums/0.1.13")
+            if self._use_aws_crt_cpp:
+                self.requires("aws-c-cal/0.5.13")
+                self.requires("aws-c-http/0.6.13")
+                self.requires("aws-c-io/0.10.20")
+                self.requires("aws-crt-cpp/0.17.23", transitive_headers=True)
         if self.settings.os != "Windows":
             self.requires("openssl/[>=1.1 <4]")
             self.requires("libcurl/[>=7.78.0 <9]")
