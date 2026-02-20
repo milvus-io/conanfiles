@@ -48,22 +48,21 @@ class AwsCrtCpp(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) < "0.24.1":
-            self.requires("aws-c-cal/0.5.13", transitive_headers=True)
-            self.requires("aws-c-common/0.8.2", transitive_headers=True)
-            self.requires("aws-checksums/0.1.13")
-        else:
+        if Version(self.version) >= "0.35":
+            self.requires("aws-c-cal/0.9.8", transitive_headers=True)
+            self.requires("aws-c-common/0.12.5", transitive_headers=True)
+            self.requires("aws-checksums/0.2.6")
+            self.requires("aws-c-auth/0.9.1", transitive_headers=True)
+            self.requires("aws-c-event-stream/0.5.7")
+            self.requires("aws-c-http/0.10.5", transitive_headers=True)
+            self.requires("aws-c-io/0.23.2", transitive_headers=True)
+            self.requires("aws-c-mqtt/0.13.3", transitive_headers=True)
+            self.requires("aws-c-s3/0.9.2")
+            self.requires("aws-c-sdkutils/0.2.4")
+        elif Version(self.version) >= "0.24.1":
             self.requires("aws-c-cal/0.6.9", transitive_headers=True)
             self.requires("aws-c-common/0.9.6", transitive_headers=True)
             self.requires("aws-checksums/0.1.17")
-        if Version(self.version) < "0.17.29":
-            self.requires("aws-c-auth/0.6.11", transitive_headers=True)
-            self.requires("aws-c-event-stream/0.2.7")
-            self.requires("aws-c-http/0.6.13", transitive_headers=True)
-            self.requires("aws-c-io/0.10.20", transitive_headers=True)
-            self.requires("aws-c-mqtt/0.7.10", transitive_headers=True)
-            self.requires("aws-c-s3/0.1.37")
-        else:
             self.requires("aws-c-auth/0.7.8", transitive_headers=True)
             self.requires("aws-c-event-stream/0.3.1")
             self.requires("aws-c-http/0.7.14", transitive_headers=True)
@@ -71,6 +70,27 @@ class AwsCrtCpp(ConanFile):
             self.requires("aws-c-mqtt/0.9.10", transitive_headers=True)
             self.requires("aws-c-s3/0.3.24")
             self.requires("aws-c-sdkutils/0.1.12")
+        elif Version(self.version) >= "0.17.29":
+            self.requires("aws-c-cal/0.5.13", transitive_headers=True)
+            self.requires("aws-c-common/0.8.2", transitive_headers=True)
+            self.requires("aws-checksums/0.1.13")
+            self.requires("aws-c-auth/0.7.8", transitive_headers=True)
+            self.requires("aws-c-event-stream/0.3.1")
+            self.requires("aws-c-http/0.7.14", transitive_headers=True)
+            self.requires("aws-c-io/0.13.35", transitive_headers=True)
+            self.requires("aws-c-mqtt/0.9.10", transitive_headers=True)
+            self.requires("aws-c-s3/0.3.24")
+            self.requires("aws-c-sdkutils/0.1.12")
+        else:
+            self.requires("aws-c-cal/0.5.13", transitive_headers=True)
+            self.requires("aws-c-common/0.8.2", transitive_headers=True)
+            self.requires("aws-checksums/0.1.13")
+            self.requires("aws-c-auth/0.6.11", transitive_headers=True)
+            self.requires("aws-c-event-stream/0.2.7")
+            self.requires("aws-c-http/0.6.13", transitive_headers=True)
+            self.requires("aws-c-io/0.10.20", transitive_headers=True)
+            self.requires("aws-c-mqtt/0.7.10", transitive_headers=True)
+            self.requires("aws-c-s3/0.1.37")
 
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
