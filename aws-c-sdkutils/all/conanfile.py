@@ -40,7 +40,9 @@ class AwsCSDKUtils(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) <= "0.1.3":
+        if Version(self.version) >= "0.2.4":
+            self.requires("aws-c-common/0.12.5", transitive_headers=True, transitive_libs=True)
+        elif Version(self.version) <= "0.1.3":
             self.requires("aws-c-common/0.8.2", transitive_headers=True, transitive_libs=True)
         else:
             self.requires("aws-c-common/0.9.6", transitive_headers=True, transitive_libs=True)
