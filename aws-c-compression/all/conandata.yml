@@ -1,4 +1,7 @@
 sources:
+  "0.3.1":
+    url: "https://github.com/awslabs/aws-c-compression/archive/v0.3.1.tar.gz"
+    sha256: "d89fca17a37de762dc34f332d2da402343078da8dbd2224c46a11a88adddf754"
   "0.2.17":
     url: "https://github.com/awslabs/aws-c-compression/archive/v0.2.17.tar.gz"
     sha256: "703d1671e395ea26f8b0b70d678ed471421685a89e127f8aa125e2b2ecedb0e0"
