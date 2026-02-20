@@ -68,6 +68,27 @@ jobs:
           # List remote Conan repositories
           conan remote list
 
+      - name: Export all local recipes
+        run: |
+          # Export all recipes in the repo so transitive deps can be resolved locally
+          for config in */config.yml; do
+            pkg_dir=$(dirname "$config")
+            pkg_name=$(basename "$pkg_dir")
+            recipe_path="$pkg_dir/all/conanfile.py"
+            if [ -f "$recipe_path" ]; then
+              # Read versions from config.yml and export each
+              python3 -c "
+          import yaml, sys
+          with open('$config') as f:
+              data = yaml.safe_load(f)
+          for ver in (data.get('versions') or {}):
+              print(ver)
+          " | while read -r ver; do
+                conan export "$recipe_path" "$pkg_name/$ver@" 2>/dev/null || true
+              done
+            fi
+          done
+
       - name: build a package
         run: |
 
