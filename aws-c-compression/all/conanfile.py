@@ -40,7 +40,9 @@ class AwsCCompression(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) <= "0.2.15":
+        if Version(self.version) >= "0.3.1":
+            self.requires("aws-c-common/0.12.5", transitive_headers=True, transitive_libs=True)
+        elif Version(self.version) <= "0.2.15":
             self.requires("aws-c-common/0.8.2", transitive_headers=True, transitive_libs=True)
         else:
             self.requires("aws-c-common/0.9.6", transitive_headers=True, transitive_libs=True)

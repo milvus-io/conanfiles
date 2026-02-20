@@ -46,7 +46,9 @@ class AwsChecksums(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) < "0.1.17":
+        if Version(self.version) >= "0.2.6":
+            self.requires("aws-c-common/0.12.5", transitive_headers=True)
+        elif Version(self.version) < "0.1.17":
             self.requires("aws-c-common/0.8.2")
         else:
             self.requires("aws-c-common/0.9.6", transitive_headers=True)
