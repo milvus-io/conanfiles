@@ -428,10 +428,11 @@ class AwsSdkCppConan(ConanFile):
 
     def _patch_sources(self):
         apply_conandata_patches(self)
-        # Disable warnings as errors
+        # Disable warnings as errors (pattern changed in newer versions where -Werror is conditional)
         replace_in_file(
             self, os.path.join(self.source_folder, "cmake", "compiler_settings.cmake"),
             'list(APPEND AWS_COMPILER_WARNINGS "-Wall" "-Werror" "-pedantic" "-Wextra")', "",
+            strict=False,
         )
 
     def build(self):
