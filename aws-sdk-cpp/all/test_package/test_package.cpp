@@ -1,14 +1,8 @@
-#include <memory>
 #include <aws/core/Aws.h>
-#include <AwsSdkCppPlugin.h>
-
 
 int main() {
-    using namespace Aws;
-    SDKOptions options;
-    InitAPI(options);
-    AwsSdkCppPlugin Plugin;
-    ShutdownAPI(options);
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+    Aws::ShutdownAPI(options);
     return 0;
 }
-
