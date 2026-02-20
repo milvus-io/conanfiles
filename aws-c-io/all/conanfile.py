@@ -53,7 +53,10 @@ class AwsCIO(ConanFile):
             self.requires("aws-c-cal/0.6.9", transitive_headers=True, transitive_libs=True)
 
         if self.settings.os in ["Linux", "FreeBSD", "Android"]:
-            self.requires("s2n/1.3.55")
+            if Version(self.version) >= "0.23.2":
+                self.requires("s2n/1.6.0")
+            else:
+                self.requires("s2n/1.3.55")
 
     def source(self):
         get(self, **self.conan_data["sources"][self.version], strip_root=True)
