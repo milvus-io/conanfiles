@@ -120,6 +120,8 @@ class AwsCCommon(ConanFile):
             if is_apple_os(self):
                 self.cpp_info.frameworks = ["CoreFoundation"]
         self.cpp_info.builddirs.append(os.path.join("lib", "cmake"))
+        # Expose cmake utility modules (AwsCFlags, AwsCheckHeaders, etc.) for downstream packages
+        self.cpp_info.builddirs.append(os.path.join("lib", "cmake", "aws-c-common", "modules"))
 
         # TODO: to remove in conan v2 once cmake_find_package* generators removed
         self.cpp_info.build_modules["cmake_find_package"] = [self._module_file_rel_path]
