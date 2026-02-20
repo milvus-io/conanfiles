@@ -29,6 +29,11 @@ on:
         description: 'define the user and channel for the package '
         required: false
         default: ''
+
+      extra_options:
+        description: 'extra conan options (e.g. -o pkg:opt=val -c conf=val)'
+        required: false
+        default: ''
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -72,7 +77,8 @@ jobs:
             -s compiler.version=11 \
             -s compiler.libcxx=libstdc++11 \
             -s compiler.cppstd=17 \
-            -s build_type=Release
+            -s build_type=Release \
+            ${{ github.event.inputs.extra_options }}
 
 
       - name: inspect built package
