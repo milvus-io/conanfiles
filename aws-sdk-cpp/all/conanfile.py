@@ -591,5 +591,6 @@ class AwsSdkCppConan(ConanFile):
         self.cpp_info.names["cmake_find_package_multi"] = "AWS"
         self.cpp_info.components["core"].names["cmake_find_package"] = "aws-sdk-cpp-core"
         self.cpp_info.components["core"].names["cmake_find_package_multi"] = "aws-sdk-cpp-core"
-        self.cpp_info.components["plugin_scripts"].build_modules["cmake_find_package"] = [sdk_plugin_conf]
-        self.cpp_info.components["plugin_scripts"].build_modules["cmake_find_package_multi"] = [sdk_plugin_conf]
+        if os.path.exists(os.path.join(self.package_folder, sdk_plugin_conf)):
+            self.cpp_info.components["plugin_scripts"].build_modules["cmake_find_package"] = [sdk_plugin_conf]
+            self.cpp_info.components["plugin_scripts"].build_modules["cmake_find_package_multi"] = [sdk_plugin_conf]
