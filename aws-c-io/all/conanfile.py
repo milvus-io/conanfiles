@@ -108,7 +108,7 @@ class AwsCIO(ConanFile):
         if self.options.shared:
             self.cpp_info.defines.append("AWS_IO_USE_IMPORT_EXPORT")
         if self.settings.os == "Macos":
-            self.cpp_info.frameworks.append("Security")
+            self.cpp_info.frameworks.extend(["Security", "Network"])
         if self.settings.os == "Windows":
             self.cpp_info.system_libs = ["crypt32", "secur32", "shlwapi"]
 
