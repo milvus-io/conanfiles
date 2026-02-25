@@ -14,6 +14,10 @@ required_conan_version = ">=1.56.0"
 
 def _load_components_2_28_0():
     """Lazy-load the components definition for 2.28.0."""
+    import sys
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    if module_dir not in sys.path:
+        sys.path.insert(0, module_dir)
     import components_2_28_0
     return components_2_28_0
 
@@ -250,7 +254,10 @@ class GoogleCloudCppConan(ConanFile):
 
     def package_info(self):
         selected = set(self._selected_components())
-        needed_protos = self._needed_proto_components()
+
+        # Check if any selected component needs gRPC (i.e., not just storage/oauth2)
+        needs_grpc = any(c not in ("storage", "oauth2") for c in selected)
+        needed_protos = self._needed_proto_components() if needs_grpc else set()
 
         # Common component (always needed)
         self.cpp_info.components["common"].requires = ["abseil::absl_any", "abseil::absl_flat_hash_map", "abseil::absl_memory", "abseil::absl_optional", "abseil::absl_time"]
@@ -261,9 +268,6 @@ class GoogleCloudCppConan(ConanFile):
         self.cpp_info.components["rest_internal"].requires = ["common", "libcurl::libcurl", "openssl::ssl", "openssl::crypto", "zlib::zlib"]
         self.cpp_info.components["rest_internal"].libs = ["google_cloud_cpp_rest_internal"]
         self.cpp_info.components["rest_internal"].names["pkg_config"] = "google_cloud_cpp_rest_internal"
-
-        # Check if any selected component needs gRPC (i.e., not just storage/oauth2)
-        needs_grpc = any(c not in ("storage", "oauth2") for c in selected)
 
         if needs_grpc:
             # grpc_utils required protos
