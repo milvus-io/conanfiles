@@ -157,4 +157,4 @@ class GeosConan(ConanFile):
         self.cpp_info.components["geos_c"].requires = ["geos_cpp"]
 
         if self.options.utils:
-            self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
+            self.buildenv_info.prepend_path("PATH", os.path.join(self.package_folder, "bin"))

@@ -443,12 +443,19 @@ class AwsSdkCppConan(ConanFile):
 
     def _patch_sources(self):
         apply_conandata_patches(self)
-        # Disable warnings as errors (pattern changed in newer versions where -Werror is conditional)
-        replace_in_file(
-            self, os.path.join(self.source_folder, "cmake", "compiler_settings.cmake"),
-            'list(APPEND AWS_COMPILER_WARNINGS "-Wall" "-Werror" "-pedantic" "-Wextra")', "",
-            strict=False,
-        )
+        # Disable warnings as errors
+        if Version(self.version) >= "1.11":
+            # In 1.11.x, Werror is conditional on AWS_SDK_WARNINGS_ARE_ERRORS
+            replace_in_file(
+                self, os.path.join(self.source_folder, "cmake", "compiler_settings.cmake"),
+                'if(AWS_SDK_WARNINGS_ARE_ERRORS)',
+                'if(0) # disabled by conan: if(AWS_SDK_WARNINGS_ARE_ERRORS)',
+            )
+        else:
+            replace_in_file(
+                self, os.path.join(self.source_folder, "cmake", "compiler_settings.cmake"),
+                'list(APPEND AWS_COMPILER_WARNINGS "-Wall" "-Werror" "-pedantic" "-Wextra")', "",
+            )
 
     def build(self):
         self._patch_sources()
@@ -462,6 +469,11 @@ class AwsSdkCppConan(ConanFile):
 
     def _create_project_cmake_module(self):
         # package files needed to build other components (e.g. aws-cdi-sdk) with this SDK
+        # In 1.11.x, non-generated SDKs moved under src/
+        if Version(self.version) >= "1.11":
+            version_config = "src/aws-cpp-sdk-core/include/aws/core/VersionConfig.h"
+        else:
+            version_config = "aws-cpp-sdk-core/include/aws/core/VersionConfig.h"
         for file in [
             "cmake/compiler_settings.cmake",
             "cmake/initialize_project_version.cmake",
@@ -469,7 +481,7 @@ class AwsSdkCppConan(ConanFile):
             "cmake/sdk_plugin_conf.cmake",
             "toolchains/cmakeProjectConfig.cmake",
             "toolchains/pkg-config.pc.in",
-            "aws-cpp-sdk-core/include/aws/core/VersionConfig.h"
+            version_config,
         ]:
             src_path = os.path.join(self.source_folder, file)
             if not os.path.exists(src_path):
@@ -521,7 +533,18 @@ class AwsSdkCppConan(ConanFile):
             "aws-c-event-stream::aws-c-event-stream",
             "aws-checksums::aws-checksums",
         ]
-        if self._use_aws_crt_cpp:
+        if Version(self.version) >= "1.11":
+            self.cpp_info.components["core"].requires.extend([
+                "aws-c-auth::aws-c-auth",
+                "aws-c-cal::aws-c-cal",
+                "aws-c-compression::aws-c-compression",
+                "aws-c-http::aws-c-http",
+                "aws-c-io::aws-c-io",
+                "aws-c-mqtt::aws-c-mqtt",
+                "aws-c-sdkutils::aws-c-sdkutils",
+                "aws-crt-cpp::aws-crt-cpp",
+            ])
+        elif self._use_aws_crt_cpp:
             self.cpp_info.components["core"].requires.extend([
                 "aws-c-cal::aws-c-cal",
                 "aws-c-http::aws-c-http",
@@ -570,6 +593,9 @@ class AwsSdkCppConan(ConanFile):
             self.cpp_info.components["core"].system_libs.append("atomic")
             if self.options.get_safe("text-to-speech"):
                 self.cpp_info.components["text-to-speech"].requires.append("pulseaudio::pulseaudio")
+
+        if self.options.get_safe("s3-crt"):
+            self.cpp_info.components["s3-crt"].requires.append("aws-c-s3::aws-c-s3")
 
         if self.settings.os == "Macos":
             if self.options.get_safe("text-to-speech"):

@@ -106,8 +106,8 @@ class GrpcConan(ConanFile):
             self.requires("protobuf/5.27.0@milvus/dev", transitive_headers=True)
             self.requires("abseil/[>=20240116.1 <=20250127.0]", transitive_headers=True)
         else:
-            self.requires("abseil/[>=20230125.3 <=20230802.1]", transitive_headers=True)
-            self.requires("protobuf/3.21.12", transitive_headers=True)
+            self.requires("abseil/[>=20220623.0 <=20230802.1]", transitive_headers=True)
+            self.requires("protobuf/[>=3.21.4 <=3.21.12]", transitive_headers=True)
         self.requires("c-ares/[>=1.19.1 <2]")
         self.requires("openssl/[>=1.1 <4]")
         self.requires("re2/20230301")
@@ -137,7 +137,10 @@ class GrpcConan(ConanFile):
 
     def build_requirements(self):
         if not self._is_legacy_one_profile:
-            self.tool_requires("protobuf/<host_version>")
+            if Version(self.version) >= "1.62.0":
+                self.tool_requires("protobuf/5.27.0@milvus/dev")
+            else:
+                self.tool_requires("protobuf/<host_version>")
         if cross_building(self):
             # when cross compiling we need pre compiled grpc plugins for protoc
             self.tool_requires(f"grpc/{self.version}")
@@ -345,10 +348,6 @@ class GrpcConan(ConanFile):
             self.cpp_info.components[component].system_libs = values.get("system_libs", [])
             self.cpp_info.components[component].frameworks = values.get("frameworks", [])
 
-            # TODO: to remove in conan v2 once cmake_find_package_* generators removed
-            self.cpp_info.components[component].names["cmake_find_package"] = target
-            self.cpp_info.components[component].names["cmake_find_package_multi"] = target
-
         # Executable imported targets are added through custom CMake module files,
         # since conan generators don't know how to emulate these kind of targets.
         grpc_modules = []
@@ -360,11 +359,5 @@ class GrpcConan(ConanFile):
                 grpc_modules.append(os.path.join(self._module_path, grpc_module_filename))
         self.cpp_info.set_property("cmake_build_modules", grpc_modules)
 
-        # TODO: to remove once conan v1 not supported anymore
-        self.cpp_info.names["cmake_find_package"] = "gRPC"
-        self.cpp_info.names["cmake_find_package_multi"] = "gRPC"
-        self.env_info.GRPC_DEFAULT_SSL_ROOTS_FILE_PATH = ssl_roots_file_path
         if grpc_modules:
-            self.cpp_info.components["grpc_execs"].build_modules["cmake_find_package"] = grpc_modules
-            self.cpp_info.components["grpc_execs"].build_modules["cmake_find_package_multi"] = grpc_modules
-            self.env_info.PATH.append(os.path.join(self.package_folder, "bin"))
+            self.buildenv_info.prepend_path("PATH", os.path.join(self.package_folder, "bin"))

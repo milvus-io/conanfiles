@@ -22,34 +22,33 @@ jobs:
   sync-conan-package:
     runs-on: ubuntu-latest
     env:
-      CONAN_REVISIONS_ENABLED: 1
-      PACKAGE_REF: ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}@
+      PACKAGE_REF: ${{ github.event.inputs.package }}/${{ github.event.inputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13' 
+          python-version: '3.13'
 
       - name: Install Conan
         run: |
-          pip install --user conan==1.65.0
+          pip install --user conan==2.25.1
           conan --version
+          conan profile detect
 
       - name: Configure Conan remote
         run: |
           if [ "${{ github.event.inputs.repository }}" = "production" ]; then
-            conan remote add artifactory https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local
+            conan remote add artifactory https://milvus01.jfrog.io/artifactory/api/conan2/default-conan2-local
           else
             # for testing purpose
-            conan remote add artifactory https://milvus01.jfrog.io/artifactory/api/conan/testing
+            conan remote add artifactory https://milvus01.jfrog.io/artifactory/api/conan2/testing
           fi
-
-          # List remote Conan repositories; should include Conan Center by default
+          # conancenter is added by default
           conan remote list
 
       - name: Install package
         run: |
-          conan install $PACKAGE_REF \
+          conan install --requires=$PACKAGE_REF \
           -s compiler=gcc \
           -s compiler.version=11 \
           -s compiler.libcxx=libstdc++11 \
@@ -57,13 +56,12 @@ jobs:
 
       - name: inspect installed package
         run: |
-          # Search for installed packages and their revisions
-          conan search '*' --revisions
+          # List installed packages and their revisions
+          conan list '*:*'
 
       - name: Upload
         run: |
-          conan user -p ${{ secrets.JFROG_PASSWORD }} -r artifactory ${{ secrets.JFROG_USERNAME }}
+          conan remote login artifactory ${{ secrets.JFROG_USERNAME }} -p ${{ secrets.JFROG_PASSWORD }}
 
-          # upload all packages
-          # Upload only the Conan recipe to the specified local repository, excluding binaries
+          # upload all packages (recipes and binaries)
           conan upload '*' -r artifactory -c

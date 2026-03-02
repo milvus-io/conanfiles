@@ -5,7 +5,7 @@ from conan.tools.env import VirtualBuildEnv
 from conan.tools.files import apply_conandata_patches, copy, export_conandata_patches, get, rename, rm, rmdir, replace_in_file
 from conan.tools.layout import basic_layout
 from conan.tools.meson import Meson, MesonToolchain
-from conan.tools.microsoft import is_msvc, unix_path_package_info_legacy
+from conan.tools.microsoft import is_msvc
 from conan.tools.scm import Version
 
 
@@ -128,7 +128,7 @@ class PkgConfConan(ConanFile):
             self.cpp_info.libdirs = []
 
         bindir = os.path.join(self.package_folder, "bin")
-        self.env_info.PATH.append(bindir)
+        self.buildenv_info.prepend_path("PATH", bindir)
 
         exesuffix = ".exe" if self.settings.os == "Windows" else ""
         pkg_config = os.path.join(bindir, "pkgconf" + exesuffix).replace("\\", "/")
@@ -136,10 +136,4 @@ class PkgConfConan(ConanFile):
 
         pkgconf_aclocal = os.path.join(self.package_folder, "bin", "aclocal")
         self.buildenv_info.prepend_path("ACLOCAL_PATH", pkgconf_aclocal)
-        # TODO: evaluate if `ACLOCAL_PATH` is enough and we can stop using `AUTOMAKE_CONAN_INCLUDES`
         self.buildenv_info.prepend_path("AUTOMAKE_CONAN_INCLUDES", pkgconf_aclocal)
-
-        # TODO: remove in conanv2
-        automake_extra_includes = unix_path_package_info_legacy(self, pkgconf_aclocal.replace("\\", "/"))
-        self.env_info.PKG_CONFIG = pkg_config
-        self.env_info.AUTOMAKE_CONAN_INCLUDES.append(automake_extra_includes)
