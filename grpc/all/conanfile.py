@@ -53,7 +53,7 @@ class GrpcConan(ConanFile):
         "python_plugin": True,
         "ruby_plugin": True,
         "secure": False,
-        "with_libsystemd": True
+        "with_libsystemd": False
     }
 
     short_paths = True
@@ -198,6 +198,20 @@ class GrpcConan(ConanFile):
 
         if self._supports_libsystemd:
             tc.cache_variables["gRPC_USE_SYSTEMD"] = self.options.with_libsystemd
+
+        # Set RPATH on installed binaries (grpc_cpp_plugin etc.) so they can find
+        # shared dependencies (e.g. libprotoc.so) at runtime without LD_LIBRARY_PATH.
+        # This is critical when other conan packages invoke these plugins during build.
+        if self.settings.os in ["Linux", "FreeBSD"]:
+            dep_lib_dirs = []
+            for _, dep in self.dependencies.items():
+                if dep.package_folder:
+                    lib_dir = os.path.join(dep.package_folder, "lib")
+                    if os.path.isdir(lib_dir):
+                        dep_lib_dirs.append(lib_dir)
+            if dep_lib_dirs:
+                tc.cache_variables["CMAKE_INSTALL_RPATH"] = ";".join(dep_lib_dirs)
+                tc.cache_variables["CMAKE_BUILD_WITH_INSTALL_RPATH"] = True
 
         tc.generate()
 

@@ -334,6 +334,23 @@ class OpenTelemetryCppConan(ConanFile):
 
         apply_conandata_patches(self)
 
+        # When protobuf/grpc are shared, grpc_cpp_plugin needs LD_LIBRARY_PATH
+        # to find libprotoc.so at build time. Patch the proto cmake to wrap
+        # protoc invocations with the library path, similar to gRPC's own recipe.
+        if self.settings.os in ["Linux", "FreeBSD"]:
+            protos_cmake_path = os.path.join(
+                self.source_folder, "cmake", "opentelemetry-proto.cmake"
+            )
+            replace_in_file(
+                self,
+                protos_cmake_path,
+                "COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}",
+                'COMMAND ${CMAKE_COMMAND} -E env '
+                '"LD_LIBRARY_PATH=$<JOIN:${CMAKE_LIBRARY_PATH},:>:$ENV{LD_LIBRARY_PATH}" '
+                '${PROTOBUF_PROTOC_EXECUTABLE}',
+                strict=False,
+            )
+
     def build(self):
         self._patch_sources()
         cmake = CMake(self)
