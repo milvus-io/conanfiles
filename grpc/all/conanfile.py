@@ -53,7 +53,7 @@ class GrpcConan(ConanFile):
         "python_plugin": True,
         "ruby_plugin": True,
         "secure": False,
-        "with_libsystemd": True
+        "with_libsystemd": False
     }
 
     short_paths = True
