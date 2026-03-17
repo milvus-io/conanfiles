@@ -246,7 +246,7 @@ class FollyConan(ConanFile):
             self.cpp_info.components["libfolly"].requires.append("libdwarf::libdwarf")
         if self.settings.os == "Linux":
             self.cpp_info.components["libfolly"].requires.extend(["libiberty::libiberty", "libunwind::libunwind"])
-            self.cpp_info.components["libfolly"].system_libs.extend(["pthread", "dl", "rt"])
+            self.cpp_info.components["libfolly"].system_libs.extend(["pthread", "dl", "rt", "aio"])
 
         if Version(self.version) >= "2020.08.10.00":
             self.cpp_info.components["libfolly"].requires.append("fmt::fmt")
