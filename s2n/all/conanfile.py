@@ -20,10 +20,12 @@ class S2nConan(ConanFile):
     options = {
         "shared": [True, False],
         "fPIC": [True, False],
+        "crypto_backend": ["openssl", "aws-lc"],
     }
     default_options = {
         "shared": False,
         "fPIC": True,
+        "crypto_backend": "openssl",
     }
 
     def export_sources(self):
@@ -40,11 +42,18 @@ class S2nConan(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        self.requires("openssl/[>=1.1 <4]")
+        if self.options.crypto_backend == "aws-lc":
+            self.requires("aws-lc/1.70.0")
+        else:
+            self.requires("openssl/[>=1.1 <4]")
 
     def validate(self):
         if self.settings.os == "Windows":
             raise ConanInvalidConfiguration("Not supported (yet)")
+        if self.options.crypto_backend == "aws-lc" and self.settings.os != "Linux":
+            raise ConanInvalidConfiguration(
+                "aws-lc crypto backend with S2N_INTERN_LIBCRYPTO is only supported on Linux"
+            )
 
     def source(self):
         get(self, **self.conan_data["sources"][self.version], strip_root=True)
@@ -53,7 +62,16 @@ class S2nConan(ConanFile):
         tc = CMakeToolchain(self)
         tc.variables["BUILD_TESTING"] = False
         tc.variables["UNSAFE_TREAT_WARNINGS_AS_ERRORS"] = False
-        tc.variables["SEARCH_LIBCRYPTO"] = False # see CMakeLists wrapper
+        tc.variables["SEARCH_LIBCRYPTO"] = False  # see CMakeLists wrapper
+        if self.options.crypto_backend == "aws-lc":
+            tc.variables["S2N_INTERN_LIBCRYPTO"] = True
+            # s2n's S2N_INTERN_LIBCRYPTO needs the path to static libcrypto.a
+            # for objcopy symbol prefixing. CMakeDeps creates INTERFACE targets
+            # which don't have LOCATION, so we pass the paths directly.
+            awslc_info = self.dependencies["aws-lc"].cpp_info
+            tc.variables["crypto_STATIC_LIBRARY"] = os.path.join(
+                awslc_info.libdirs[0], "libcrypto.a")
+            tc.variables["crypto_INCLUDE_DIR"] = awslc_info.includedirs[0]
         tc.generate()
         deps = CMakeDeps(self)
         deps.generate()
@@ -95,7 +113,10 @@ class S2nConan(ConanFile):
         self.cpp_info.set_property("cmake_file_name", "s2n")
         self.cpp_info.set_property("cmake_target_name", "AWS::s2n")
         self.cpp_info.libs = ["s2n"]
-        self.cpp_info.requires = ["openssl::crypto"]
+        if self.options.crypto_backend == "aws-lc":
+            self.cpp_info.requires = ["aws-lc::crypto"]
+        else:
+            self.cpp_info.requires = ["openssl::crypto"]
         if self.settings.os in ("FreeBSD", "Linux"):
             self.cpp_info.system_libs = ["m", "pthread"]
 

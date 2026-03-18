@@ -1,0 +1,4 @@
+sources:
+  "1.70.0":
+    url: "https://github.com/aws/aws-lc/archive/refs/tags/v1.70.0.tar.gz"
+    sha256: "5a10882f3b85099151520d1afc47a0eb634cecd2534acf34558503cd093dc93d"
