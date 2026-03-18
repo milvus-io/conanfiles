@@ -262,7 +262,7 @@ class FollyConan(ConanFile):
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.components["libfolly"].requires.extend(["libiberty::libiberty", "libunwind::libunwind"])
         if self.settings.os == "Linux":
-            self.cpp_info.components["libfolly"].system_libs.extend(["pthread", "dl", "rt"])
+            self.cpp_info.components["libfolly"].system_libs.extend(["pthread", "dl", "rt", "aio"])
             self.cpp_info.components["libfolly"].defines.extend(["FOLLY_HAVE_ELF", "FOLLY_HAVE_DWARF"])
         elif self.settings.os == "Windows":
             self.cpp_info.components["libfolly"].system_libs.extend(["ws2_32", "iphlpapi", "crypt32"])
