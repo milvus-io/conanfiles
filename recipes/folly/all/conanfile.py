@@ -1,0 +1,289 @@
+from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
+from conan.tools.build import check_min_cppstd, can_run
+from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
+from conan.tools.files import get, copy, rmdir, apply_conandata_patches, export_conandata_patches
+from conan.tools.microsoft import is_msvc, is_msvc_static_runtime
+from conan.tools.scm import Version
+import os
+
+required_conan_version = ">=2.1"
+
+
+class FollyConan(ConanFile):
+    name = "folly"
+    description = "An open-source C++ components library developed and used at Facebook"
+    topics = ("facebook", "components", "core", "efficiency")
+    url = "https://github.com/conan-io/conan-center-index"
+    homepage = "https://github.com/facebook/folly"
+    license = "Apache-2.0"
+
+    package_type = "library"
+    settings = "os", "arch", "compiler", "build_type"
+    options = {
+        "shared": [True, False],
+        "fPIC": [True, False],
+        "use_sse4_2": [True, False],
+    }
+    default_options = {
+        "shared": False,
+        "fPIC": True,
+        "use_sse4_2": False,
+    }
+
+    @property
+    def _minimum_cpp_standard(self):
+        return 17 if Version(self.version) >= "2022.01.31.00" else 14
+
+    @property
+    def _minimum_compilers_version(self):
+        return {
+            "Visual Studio": "15",
+            "gcc": "5",
+            "clang": "6",
+            "apple-clang": "8",
+        } if self._minimum_cpp_standard == 14 else {
+            "gcc": "7",
+            "Visual Studio": "16",
+            "clang": "6",
+            "apple-clang": "10",
+        }
+
+    def export_sources(self):
+        export_conandata_patches(self)
+
+    def config_options(self):
+        if self.settings.os == "Windows":
+            self.options.rm_safe("fPIC")
+        if str(self.settings.arch) not in ["x86", "x86_64"]:
+            self.options.rm_safe("use_sse4_2")
+
+    def configure(self):
+        if self.options.shared:
+            self.options.rm_safe("fPIC")
+
+    def layout(self):
+        cmake_layout(self, src_folder="src")
+
+    def requirements(self):
+        self.requires("boost/1.78.0")
+        self.requires("bzip2/1.0.8")
+        self.requires("double-conversion/3.2.0")
+        self.requires("gflags/2.2.2")
+        self.requires("glog/0.4.0")
+        self.requires("libevent/2.1.12")
+        self.requires("openssl/1.1.1q")
+        self.requires("lz4/1.9.3")
+        self.requires("snappy/1.1.9")
+        self.requires("zlib/1.2.12")
+        self.requires("zstd/1.5.2")
+        if not is_msvc(self):
+            self.requires("libdwarf/20191104")
+        self.requires("libsodium/1.0.18")
+        self.requires("xz_utils/5.2.5")
+        if self.settings.os == "Linux":
+            self.requires("libiberty/9.1.0")
+            self.requires("libunwind/1.5.0")
+        if Version(self.version) >= "2020.08.10.00":
+            self.requires("fmt/7.1.3")
+
+    def build_requirements(self):
+        self.tool_requires("cmake/3.16.9")
+
+    @property
+    def _required_boost_components(self):
+        return ["context", "filesystem", "program_options", "regex", "system", "thread"]
+
+    def validate(self):
+        if self.settings.compiler.get_safe("cppstd"):
+            check_min_cppstd(self, self._minimum_cpp_standard)
+        min_version = self._minimum_compilers_version.get(str(self.settings.compiler))
+        if not min_version:
+            self.output.warning(f"{self.name} recipe lacks information about the {self.settings.compiler} compiler support.")
+        else:
+            if Version(self.settings.compiler.version) < min_version:
+                raise ConanInvalidConfiguration(
+                    f"{self.name} requires C++{self._minimum_cpp_standard} support. "
+                    f"The current compiler {self.settings.compiler} {self.settings.compiler.version} does not support it.")
+
+        if Version(self.version) < "2022.01.31.00" and self.settings.os != "Linux":
+            raise ConanInvalidConfiguration("Conan support for non-Linux platforms starts with Folly version 2022.01.31.00")
+
+        if self.settings.os == "Macos" and self.settings.arch != "x86_64":
+            raise ConanInvalidConfiguration("Conan currently requires a 64bit target architecture for Folly on Macos")
+
+        if self.settings.os == "Windows" and self.settings.arch != "x86_64":
+            raise ConanInvalidConfiguration("Folly requires a 64bit target architecture on Windows")
+
+        if self.settings.os in ["Macos", "Windows"] and self.options.shared:
+            raise ConanInvalidConfiguration(f"Folly could not be built on {self.settings.os} as shared library")
+
+        if Version(self.version) == "2020.08.10.00" and self.settings.compiler == "clang" and self.options.shared:
+            raise ConanInvalidConfiguration("Folly could not be built by clang as a shared library")
+
+        boost = self.dependencies["boost"]
+        if boost.options.header_only:
+            raise ConanInvalidConfiguration("Folly could not be built with a header only Boost")
+
+        miss_boost_required_comp = any(
+            getattr(boost.options, f"without_{boost_comp}", True)
+            for boost_comp in self._required_boost_components
+        )
+        if miss_boost_required_comp:
+            raise ConanInvalidConfiguration(
+                f"Folly requires these boost components: {', '.join(self._required_boost_components)}")
+
+        if self.options.get_safe("use_sse4_2") and str(self.settings.arch) not in ["x86", "x86_64"]:
+            raise ConanInvalidConfiguration(f"{self.ref} can use the option use_sse4_2 only on x86 and x86_64 archs.")
+
+    def source(self):
+        get(self, **self.conan_data["sources"][self.version], strip_root=True)
+
+    def generate(self):
+        tc = CMakeToolchain(self)
+        if can_run(self):
+            tc.variables["FOLLY_HAVE_UNALIGNED_ACCESS_EXITCODE"] = "0"
+            tc.variables["FOLLY_HAVE_UNALIGNED_ACCESS_EXITCODE__TRYRUN_OUTPUT"] = ""
+            tc.variables["FOLLY_HAVE_LINUX_VDSO_EXITCODE"] = "0"
+            tc.variables["FOLLY_HAVE_LINUX_VDSO_EXITCODE__TRYRUN_OUTPUT"] = ""
+            tc.variables["FOLLY_HAVE_WCHAR_SUPPORT_EXITCODE"] = "0"
+            tc.variables["FOLLY_HAVE_WCHAR_SUPPORT_EXITCODE__TRYRUN_OUTPUT"] = ""
+            tc.variables["HAVE_VSNPRINTF_ERRORS_EXITCODE"] = "0"
+            tc.variables["HAVE_VSNPRINTF_ERRORS_EXITCODE__TRYRUN_OUTPUT"] = ""
+
+        if self.options.get_safe("use_sse4_2") and str(self.settings.arch) in ["x86", "x86_64"]:
+            if not is_msvc(self):
+                tc.variables["CMAKE_C_FLAGS"] = "-mfma"
+                tc.variables["CMAKE_CXX_FLAGS"] = "-mfma"
+            else:
+                tc.variables["CMAKE_C_FLAGS"] = "/arch:FMA"
+                tc.variables["CMAKE_CXX_FLAGS"] = "/arch:FMA"
+
+        tc.cache_variables["CMAKE_POSITION_INDEPENDENT_CODE"] = self.options.get_safe("fPIC", True)
+
+        cppstd = self.settings.compiler.get_safe("cppstd")
+        if cppstd:
+            cxx_std_value = f"c++{cppstd}"
+        else:
+            cxx_std_value = f"c++{self._minimum_cpp_standard}"
+        tc.variables["CXX_STD"] = cxx_std_value
+        if is_msvc(self):
+            tc.variables["MSVC_LANGUAGE_VERSION"] = cxx_std_value
+            tc.variables["MSVC_ENABLE_ALL_WARNINGS"] = False
+            tc.variables["MSVC_USE_STATIC_RUNTIME"] = is_msvc_static_runtime(self)
+
+        tc.generate()
+
+        deps = CMakeDeps(self)
+        deps.generate()
+
+    def build(self):
+        apply_conandata_patches(self)
+        cmake = CMake(self)
+        cmake.configure()
+        cmake.build()
+
+    def package(self):
+        copy(self, pattern="LICENSE", dst=os.path.join(self.package_folder, "licenses"), src=self.source_folder)
+        cmake = CMake(self)
+        cmake.install()
+        rmdir(self, os.path.join(self.package_folder, "lib", "cmake"))
+        rmdir(self, os.path.join(self.package_folder, "lib", "pkgconfig"))
+
+    def package_info(self):
+        self.cpp_info.set_property("cmake_file_name", "folly")
+        self.cpp_info.set_property("cmake_target_name", "Folly::folly")
+        self.cpp_info.set_property("pkg_config_name", "libfolly")
+
+        if Version(self.version) == "2019.10.21.00":
+            self.cpp_info.components["libfolly"].libs = [
+                "follybenchmark",
+                "folly_test_util",
+                "folly",
+            ]
+        elif Version(self.version) >= "2020.08.10.00":
+            if self.settings.os == "Linux":
+                self.cpp_info.components["libfolly"].libs = [
+                    "folly_exception_counter",
+                    "folly_exception_tracer",
+                    "folly_exception_tracer_base",
+                    "folly_test_util",
+                    "follybenchmark",
+                    "folly",
+                ]
+            else:
+                self.cpp_info.components["libfolly"].libs = [
+                    "folly_test_util",
+                    "follybenchmark",
+                    "folly",
+                ]
+
+        self.cpp_info.components["libfolly"].set_property("cmake_target_name", "Folly::folly")
+        self.cpp_info.components["libfolly"].set_property("pkg_config_name", "libfolly")
+        self.cpp_info.components["libfolly"].requires = [
+            "boost::boost",
+            "bzip2::bzip2",
+            "double-conversion::double-conversion",
+            "gflags::gflags",
+            "glog::glog",
+            "libevent::libevent",
+            "lz4::lz4",
+            "openssl::openssl",
+            "snappy::snappy",
+            "zlib::zlib",
+            "zstd::zstd",
+            "libsodium::libsodium",
+            "xz_utils::xz_utils",
+        ]
+        if not is_msvc(self):
+            self.cpp_info.components["libfolly"].requires.append("libdwarf::libdwarf")
+        if self.settings.os == "Linux":
+            self.cpp_info.components["libfolly"].requires.extend(["libiberty::libiberty", "libunwind::libunwind"])
+            self.cpp_info.components["libfolly"].system_libs.extend(["pthread", "dl", "rt"])
+
+        if Version(self.version) >= "2020.08.10.00":
+            self.cpp_info.components["libfolly"].requires.append("fmt::fmt")
+            if self.settings.os == "Linux":
+                self.cpp_info.components["libfolly"].defines.extend(["FOLLY_HAVE_ELF", "FOLLY_HAVE_DWARF"])
+
+        elif self.settings.os == "Windows":
+            self.cpp_info.components["libfolly"].system_libs.extend(["ws2_32", "iphlpapi", "crypt32"])
+
+        if (self.settings.os == "Linux" and self.settings.compiler == "clang" and
+            self.settings.compiler.libcxx == "libstdc++") or \
+           (self.settings.os == "Macos" and self.settings.compiler == "apple-clang" and
+            Version(self.settings.compiler.version) == "9.0" and self.settings.compiler.libcxx == "libc++"):
+            self.cpp_info.components["libfolly"].system_libs.append("atomic")
+
+        if self.settings.os == "Macos" and self.settings.compiler == "apple-clang" and Version(self.settings.compiler.version) >= "11.0":
+            self.cpp_info.components["libfolly"].system_libs.append("c++abi")
+
+        if self.options.get_safe("use_sse4_2") and str(self.settings.arch) in ["x86", "x86_64"]:
+            self.cpp_info.components["libfolly"].defines = ["FOLLY_SSE=4", "FOLLY_SSE_MINOR=2"]
+
+        if Version(self.version) >= "2019.10.21.00":
+            self.cpp_info.components["follybenchmark"].set_property("cmake_target_name", "Folly::follybenchmark")
+            self.cpp_info.components["follybenchmark"].set_property("pkg_config_name", "libfollybenchmark")
+            self.cpp_info.components["follybenchmark"].libs = ["follybenchmark"]
+            self.cpp_info.components["follybenchmark"].requires = ["libfolly"]
+
+            self.cpp_info.components["folly_test_util"].set_property("cmake_target_name", "Folly::folly_test_util")
+            self.cpp_info.components["folly_test_util"].set_property("pkg_config_name", "libfolly_test_util")
+            self.cpp_info.components["folly_test_util"].libs = ["folly_test_util"]
+            self.cpp_info.components["folly_test_util"].requires = ["libfolly"]
+
+        if Version(self.version) >= "2020.08.10.00" and self.settings.os == "Linux":
+            self.cpp_info.components["folly_exception_tracer_base"].set_property("cmake_target_name", "Folly::folly_exception_tracer_base")
+            self.cpp_info.components["folly_exception_tracer_base"].set_property("pkg_config_name", "libfolly_exception_tracer_base")
+            self.cpp_info.components["folly_exception_tracer_base"].libs = ["folly_exception_tracer_base"]
+            self.cpp_info.components["folly_exception_tracer_base"].requires = ["libfolly"]
+
+            self.cpp_info.components["folly_exception_tracer"].set_property("cmake_target_name", "Folly::folly_exception_tracer")
+            self.cpp_info.components["folly_exception_tracer"].set_property("pkg_config_name", "libfolly_exception_tracer")
+            self.cpp_info.components["folly_exception_tracer"].libs = ["folly_exception_tracer"]
+            self.cpp_info.components["folly_exception_tracer"].requires = ["folly_exception_tracer_base"]
+
+            self.cpp_info.components["folly_exception_counter"].set_property("cmake_target_name", "Folly::folly_exception_counter")
+            self.cpp_info.components["folly_exception_counter"].set_property("pkg_config_name", "libfolly_exception_counter")
+            self.cpp_info.components["folly_exception_counter"].libs = ["folly_exception_counter"]
+            self.cpp_info.components["folly_exception_counter"].requires = ["folly_exception_tracer"]
