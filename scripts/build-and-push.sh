@@ -236,6 +236,20 @@ if [ "$DO_UPLOAD" = true ]; then
         conan remote login "$REMOTE_NAME" "$JFROG_USERNAME2" -p "$JFROG_PASSWORD2"
     fi
 
+    # Show which recipes will be uploaded (extracted from the package list)
+    echo ""
+    echo "Recipes to upload:"
+    python3 -c "
+import json
+with open('$PKGLIST') as f:
+    data = json.load(f)
+for repo in data.values():
+    for pkg_name, pkg_data in repo.items():
+        for rev in pkg_data.get('revisions', {}):
+            print(f'  {pkg_name}#{rev}')
+"
+    echo ""
+
     # Upload only the target recipe and its dependencies (recipe-only)
     conan upload --list="$PKGLIST" -r "$REMOTE_NAME" -c --only-recipe
 
