@@ -473,6 +473,13 @@ upload_recipes() {
         fi
     fi
 
+    echo ""
+    echo "Recipes to upload:"
+    for pkg in "${BUILT_PACKAGES[@]}"; do
+        echo "  $pkg"
+    done
+    echo ""
+
     for pkg in "${BUILT_PACKAGES[@]}"; do
         echo "Uploading $pkg ..."
         conan upload "$pkg" -r "$REMOTE_NAME" -c --only-recipe
