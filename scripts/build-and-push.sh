@@ -104,6 +104,17 @@ if [ -z "$PACKAGE" ] || [ -z "$VERSION" ]; then
     exit 1
 fi
 
+# Restrict production uploads to master and release branches (3.x).
+# Any other branch is allowed to publish to testing only.
+if [ "$REPOSITORY" = "production" ]; then
+    CURRENT_BRANCH="${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)}"
+    if [[ "$CURRENT_BRANCH" != "master" && ! "$CURRENT_BRANCH" =~ ^3\.[0-9]+$ ]]; then
+        echo "Error: production uploads are only allowed from 'master' or release branches (3.x)." >&2
+        echo "       Current branch: '$CURRENT_BRANCH'. Use --repository testing instead." >&2
+        exit 1
+    fi
+fi
+
 # Resolve remote name and URL based on repository choice
 if [ "$REPOSITORY" = "production" ]; then
     REMOTE_NAME="$REMOTE_NAME_PRODUCTION"
