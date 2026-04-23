@@ -1,23 +1,41 @@
 # Publishing a Recipe to Milvus Conan 2.x Artifactory
 
-This guide walks you through preparing and publishing a Conan 2.x recipe to Milvus's private Artifactory (`default-conan-local2`).
+This guide walks you through preparing and publishing a Conan 2.x recipe to Milvus's private Artifactory.
 
 ## Overview
 
-The [milvus-io/conanfiles](https://github.com/milvus-io/conanfiles) repo holds custom Conan 2.x recipes for the third-party libraries that Milvus depends on. Recipes are published to:
+The [milvus-io/conanfiles](https://github.com/milvus-io/conanfiles) repo holds custom Conan 2.x recipes for the third-party libraries that Milvus depends on. Recipes are published to two repositories:
 
 - **Production:** `https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local2`
-- **Testing:** `https://milvus01.jfrog.io/artifactory/api/conan/testing2`
+- **Testing:** `https://milvus01.jfrog.io/artifactory/api/conan/testing2` (for validating new recipes before they go to production)
 
-There are two ways to publish:
+## The Publish Workflow
 
-1. **GitHub Actions workflows** (requires write access to the conanfiles repo)
-2. **Local scripts** (requires Artifactory credentials and a working build environment)
+The recommended end-to-end flow for adding a new recipe (or a new version of an existing recipe):
+
+| Step | Action |
+|---|---|
+| 1 | Branch off `master` with a `conan2-add-*` branch name, add/update the recipe(s) in Conan 2.x format |
+| 2 | Push the branch to the conanfiles repo |
+| 3 | Trigger the `build-and-push` GitHub Actions workflow from the branch, targeting the **testing** repository |
+| 4 | Verify the testing upload succeeded, then open a PR and merge the branch into `master` |
+| 5 | Trigger the `build-and-push` workflow from `master`, targeting the **production** repository |
+| 6 | Delete the temporary branch |
+
+**Why this flow:**
+- Testing validates the recipe works on a clean CI runner before it hits production.
+- Production uploads only happen from `master`, keeping it as the single source of truth.
+- The recipe revision hash is identical between testing and production (same files), so consumers can pin the same revision either way.
+
+> **Production branch restriction:** The publish script enforces that only `master` and release branches matching `3.x` (e.g. `3.0`, `3.1`, `3.2`) can publish to **production**. Any other branch must use **testing**. This prevents accidental production uploads from feature branches.
+
+> **Important:** If the new recipe A depends on another new recipe B with `@milvus/dev` (e.g. `folly/2026.04.20.00@milvus/dev` depending on `fast_float/8.0.0@milvus/dev`), you must publish **B first, then A** — as two separate workflow triggers in each of steps 3 and 5. The graph-based upload handles transitive **ConanCenter** deps automatically, but local `@milvus/dev` recipes need to be published explicitly in dependency order so Conan can resolve them during the next build.
 
 ## Prerequisites
 
 - Python 3.8 or later
 - Conan 2.25.1
+- **Write** access (or higher) to the conanfiles repo (required to trigger workflows)
 
 ```bash
 pip install --user conan==2.25.1 pyyaml
@@ -25,6 +43,14 @@ conan profile detect
 ```
 
 ## Step 1: Prepare the Recipe
+
+On a new branch off `master`:
+
+```bash
+git checkout master
+git pull
+git checkout -b conan2-add-<package>-<version>
+```
 
 Each recipe lives under `recipes/<package>/` in the conanfiles repo:
 
@@ -127,60 +153,89 @@ class MyLibConan(ConanFile):
 - ❌ `def imports(self): ...`
 - ❌ `self.info.options.xxx` outside `package_id()`
 
-## Step 2: Verify Locally
+## Step 2: Push the Branch
 
-Before submitting or publishing, verify the recipe builds:
+Verify the recipe builds locally (optional but strongly recommended):
 
 ```bash
 export CMAKE_POLICY_VERSION_MINIMUM=3.5    # only needed for CMake 4.x
 ./scripts/build-and-push.sh <package> <version> --no-upload
 ```
 
-This runs the full build + test_package without uploading. If it succeeds locally, it will succeed on CI.
-
 > **Note:** `CMAKE_POLICY_VERSION_MINIMUM=3.5` is only required for **CMake 4.x**, which removed compatibility with `cmake_minimum_required(VERSION < 3.5)`. Skip it if you're using CMake 3.x.
 
-## Step 3: Submit a PR
+Then push:
 
-Open a pull request against the `master` branch of the conanfiles repo with the new recipe. Once merged, maintainers can publish it.
+```bash
+git add recipes/<package>
+git commit -m "Add <package>/<version>"
+git push -u origin conan2-add-<package>-<version>
+```
 
-## Step 4: Publish
-
-### Option A: GitHub Actions Workflow (recommended)
+## Step 3: Publish to Testing
 
 Open the conanfiles Actions page: https://github.com/milvus-io/conanfiles/actions
 
-1. Select the **build and push** workflow (left sidebar) → **Run workflow**
-2. Select the branch (usually `master`)
+1. Select the **build and push** workflow → **Run workflow**
+2. **Use workflow from:** select your branch (`conan2-add-<package>-<version>`)
 3. Fill in the inputs:
    - `package` — e.g. `mylib`
    - `version` — e.g. `1.2.3`
    - `conanfile_path` — default `all/conanfile.py`
-   - `repository` — `production` or `testing`
-   - `user_channel` — e.g. `milvus/dev` for Milvus-customized recipes
+   - `repository` — **`testing`**
+   - `user_channel` — e.g. `milvus/dev` if the recipe is Milvus-customized
    - `extra_options` — e.g. `-o mylib:shared=True`
 4. Click **Run workflow**
 
-Triggering workflows requires **write** access (or higher) to the conanfiles repo.
+**If your recipe depends on another new `@milvus/dev` recipe** (e.g. folly v2026 needs fast_float), trigger the workflow for the dependency first, then for the main recipe. Both go to `testing`:
 
-### Option B: Local Script
-
-Requires Artifactory credentials:
-
-```bash
-export JFROG_USERNAME2=<your_username>
-export JFROG_PASSWORD2=<your_password>
-export CMAKE_POLICY_VERSION_MINIMUM=3.5    # only needed for CMake 4.x
-
-./scripts/build-and-push.sh mylib 1.2.3                                    # upload to production
-./scripts/build-and-push.sh mylib 1.2.3 --user-channel milvus/dev          # with user/channel
-./scripts/build-and-push.sh mylib 1.2.3 --repository testing               # upload to testing
-./scripts/build-and-push.sh mylib 1.2.3 --extra-options "-o mylib:shared=True"
+```
+1st trigger:  package=fast_float         version=8.0.0            user_channel=milvus/dev  repository=testing
+2nd trigger:  package=folly              version=2026.04.20.00    user_channel=milvus/dev  repository=testing  conanfile_path=v2026/conanfile.py
 ```
 
-The script uploads recipe-only (no pre-built binaries). Consumers build from source with their own profile.
+Wait for each job to succeed before triggering the next.
 
-## Step 5: Verify the Upload
+## Step 4: Verify and Merge
+
+Check the uploaded recipes on the JFrog web UI:
+
+https://milvus01.jfrog.io/ui/repos/tree/Properties/testing2
+
+Navigate to the recipe's `conanfile.py` and verify the **Properties** tab shows the expected `build.commit`, `build.branch`, etc.
+
+Once the recipe works in testing, open a PR to merge the branch into `master`. Get it reviewed and merged.
+
+## Step 5: Publish to Production
+
+After the merge, trigger the workflow again — this time from `master`, targeting production:
+
+1. Go to https://github.com/milvus-io/conanfiles/actions
+2. Select **build and push** → **Run workflow**
+3. **Use workflow from:** `master`
+4. Same inputs as Step 3, but change `repository` to **`production`**
+5. Click **Run workflow**
+
+Same rule for dependencies: if A depends on a new `@milvus/dev` recipe B, publish B first, then A.
+
+## Step 6: Clean Up
+
+Delete the temporary branch:
+
+```bash
+git push origin --delete conan2-add-<package>-<version>
+# or on GitHub: Branches page → trash icon
+```
+
+Locally:
+
+```bash
+git checkout master
+git pull
+git branch -d conan2-add-<package>-<version>
+```
+
+## Verifying the Upload
 
 ### Via the JFrog Web UI
 
@@ -258,15 +313,37 @@ The version string is arbitrary — Conan treats it as an opaque identifier. Com
 Recipes that differ from upstream (custom patches, pinned deps) should use `@milvus/dev`:
 
 ```bash
+# via workflow input
+user_channel: milvus/dev
+
+# or via local script
 ./scripts/build-and-push.sh mylib 1.2.3 --user-channel milvus/dev
 ```
 
 This produces `mylib/1.2.3@milvus/dev`, distinguishing it from any upstream `mylib/1.2.3` on ConanCenter.
 
+### Publishing via local scripts (instead of the workflow)
+
+If you have Artifactory credentials and a working build environment, you can skip the GitHub Actions workflow and publish directly:
+
+```bash
+export JFROG_USERNAME2=<your_username>
+export JFROG_PASSWORD2=<your_password>
+export CMAKE_POLICY_VERSION_MINIMUM=3.5    # only needed for CMake 4.x
+
+./scripts/build-and-push.sh mylib 1.2.3 --user-channel milvus/dev --repository testing
+./scripts/build-and-push.sh mylib 1.2.3 --user-channel milvus/dev --repository production
+```
+
+The script uploads recipe-only (no pre-built binaries). Consumers build from source with their own profile.
+
 ## Troubleshooting
 
 **Build fails with `absl::string_view` not found:**
-C++ standard mismatch. The dependencies were resolved with a different `compiler.cppstd`. Add `-s compiler.cppstd=14` (or match the target) via `--extra-options`.
+C++ standard mismatch. The dependencies were resolved with a different `compiler.cppstd`. Add `-s compiler.cppstd=14` (or match the target) via `extra_options` / `--extra-options`.
+
+**Build fails with `target "fmt::fmt" not found`:**
+`fmt` was resolved as header-only (default). Folly and similar libraries need the full library target. Add `-o fmt/*:header_only=False` via `extra_options`, or set it in the recipe's `default_options`.
 
 **CI fails with `'exports_sources' but sources not found`:**
 Stale Conan cache on the CI agent. Add `conan remove <pkg>/<ver> -c || true` to the CI setup script before building.
@@ -276,3 +353,9 @@ Expected for recipe-only uploads. Consumers always build from source using their
 
 **Permission denied when triggering workflow:**
 You need **write** access to the conanfiles repo. Ask a maintainer.
+
+**Recipe depends on an `@milvus/dev` package that isn't published yet:**
+Publish the dependency first (to testing or production respectively), then the main recipe. The workflow needs each `@milvus/dev` recipe to already exist on the target remote so the next build can resolve it.
+
+**Script errors out with "production uploads are only allowed from 'master' or release branches (3.x)":**
+You're trying to publish to production from a feature branch. Either (a) use `--repository testing` / `repository: testing` instead, or (b) merge your branch into `master` first and then publish from `master`.
