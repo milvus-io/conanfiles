@@ -1,0 +1,4 @@
+sources:
+  "2026.04.20.00":
+    sha256: 14e9ddb14ce4a91f1e53e06c327e72a56bab15fe3edb79c94cf6fba60c3091f8
+    url: https://github.com/facebook/folly/releases/download/v2026.04.20.00/folly-v2026.04.20.00.tar.gz
