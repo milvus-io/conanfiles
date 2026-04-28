@@ -49,6 +49,14 @@ jobs:
           conan --version
           conan profile detect
 
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2/p
+          key: conan2-ubuntu-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/build-and-push.yml') }}
+          restore-keys: |
+            conan2-ubuntu-
+
       - name: Build and push
         env:
           JFROG_USERNAME2: ${{ secrets.JFROG_USERNAME2 }}
