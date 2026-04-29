@@ -61,7 +61,7 @@ class MilvusCommonConan(ConanFile):
         self.requires("libcurl/8.10.1", override=True)
         self.requires("nlohmann_json/3.11.3", force=True)
         if self.settings.os != "Macos":
-            self.requires("openblas/0.3.27", transitive_headers=True, transitive_libs=True)
+            self.requires("openblas/0.3.30", transitive_headers=True, transitive_libs=True)
 
     def layout(self):
         cmake_layout(self, src_folder="src")
