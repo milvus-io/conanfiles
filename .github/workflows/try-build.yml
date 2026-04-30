@@ -1,53 +1,60 @@
-name: build and push
+name: try build
 
-run-name: build and push ${{ inputs.package }}/${{ inputs.version }} to ${{ inputs.repository }}
+run-name: try build ${{ inputs.package }}/${{ inputs.version }} on ${{ inputs.runner }}
 
 on:
   workflow_dispatch:
     inputs:
-
       package:
         description: 'package name'
         required: true
       version:
         description: 'package version'
         required: true
-      
       conanfile_path:
-        description: 'the conanfile.py path of the package '
+        description: 'the conanfile.py path of the package'
         required: true
         default: 'all/conanfile.py'
-
-      repository:
-        description: 'Choose Artifactory repository'
-        required: false
+      runner:
+        description: 'GitHub-hosted runner to use'
+        required: true
         type: choice
         options:
-          - production
-          - testing
-        default: 'production'
-
+          - ubuntu-24.04-arm
+          - macos-15
+        default: ubuntu-24.04-arm
+      settings_mode:
+        description: 'Conan settings mode'
+        required: true
+        type: choice
+        options:
+          - runner-default
+          - linux-gcc-11
+        default: runner-default
       user_channel:
-        description: 'define the user and channel for the package '
+        description: 'define the user and channel for the package'
         required: false
         default: ''
-
       extra_options:
         description: 'extra conan options (e.g. -o pkg:opt=val -c conf=val)'
         required: false
         default: ''
+
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  try-build:
+    name: try build (${{ github.event.inputs.runner }})
+    runs-on: ${{ github.event.inputs.runner }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
       - name: Install Conan and dependencies
         run: |
-          pip install --user conan==2.25.1 pyyaml
+          python -m pip install --upgrade pip
+          python -m pip install conan==2.25.1 pyyaml
           conan --version
           conan profile detect
 
@@ -55,22 +62,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.conan2/p
-          key: conan2-ubuntu-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/build-and-push.yml') }}
+          key: conan2-${{ github.event.inputs.runner }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/try-build.yml') }}
           restore-keys: |
-            conan2-ubuntu-
+            conan2-${{ github.event.inputs.runner }}-
 
-      - name: Build and push
+      - name: Try build
         env:
-          JFROG_USERNAME2: ${{ secrets.JFROG_USERNAME2 }}
-          JFROG_PASSWORD2: ${{ secrets.JFROG_PASSWORD2 }}
           INPUT_PACKAGE: ${{ github.event.inputs.package }}
           INPUT_VERSION: ${{ github.event.inputs.version }}
           INPUT_CONANFILE: ${{ github.event.inputs.conanfile_path }}
-          INPUT_REPOSITORY: ${{ github.event.inputs.repository }}
+          INPUT_SETTINGS_MODE: ${{ github.event.inputs.settings_mode }}
           INPUT_USER_CHANNEL: ${{ github.event.inputs.user_channel }}
           INPUT_EXTRA_OPTIONS: ${{ github.event.inputs.extra_options }}
         run: |
-          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --repository "$INPUT_REPOSITORY")
+          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --settings-mode "$INPUT_SETTINGS_MODE" --repository testing --no-upload)
           if [ -n "$INPUT_USER_CHANNEL" ]; then
             ARGS+=(--user-channel "$INPUT_USER_CHANNEL")
           fi

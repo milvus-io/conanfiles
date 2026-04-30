@@ -15,6 +15,7 @@ set -e
 #   --conanfile <path>        Relative path to conanfile.py within the package dir (default: all/conanfile.py)
 #   --user-channel <u/c>     User/channel for the package (e.g. milvus/dev)
 #   --extra-options <opts>   Extra conan options (e.g. "-o pkg:opt=val -c conf=val")
+#   --settings-mode <mode>   Conan settings mode: linux-gcc-11 or runner-default (default: linux-gcc-11)
 #   --repository <repo>      Target Artifactory repository: production or testing (default: production)
 #   --no-upload              Build only, skip uploading to Artifactory
 #
@@ -36,7 +37,8 @@ REMOTE_URL_TESTING="https://milvus01.jfrog.io/artifactory/api/conan/testing2"
 ARTIFACTORY_STORAGE_URL_TESTING="https://milvus01.jfrog.io/artifactory/api/storage/testing2"
 
 # Common conan settings
-CONAN_SETTINGS="-s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s compiler.cppstd=17 -s build_type=Release -s:b compiler.cppstd=17"
+CONAN_SETTINGS_LINUX_GCC_11="-s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s compiler.cppstd=17 -s build_type=Release -s:b compiler.cppstd=17"
+CONAN_SETTINGS_RUNNER_DEFAULT="-s build_type=Release -s:b build_type=Release -s compiler.cppstd=17 -s:b compiler.cppstd=17"
 
 # Use 6 parallel jobs for building
 CONAN_JOBS="-c tools.build:jobs=6"
@@ -52,6 +54,7 @@ VERSION=""
 CONANFILE_PATH="all/conanfile.py"
 USER_CHANNEL=""
 EXTRA_OPTIONS=""
+SETTINGS_MODE="linux-gcc-11"
 REPOSITORY="production"
 DO_UPLOAD=true
 
@@ -67,6 +70,14 @@ while [ $# -gt 0 ]; do
             ;;
         --extra-options)
             EXTRA_OPTIONS="$2"
+            shift 2
+            ;;
+        --settings-mode)
+            SETTINGS_MODE="$2"
+            if [ "$SETTINGS_MODE" != "linux-gcc-11" ] && [ "$SETTINGS_MODE" != "runner-default" ]; then
+                echo "Error: --settings-mode must be 'linux-gcc-11' or 'runner-default'" >&2
+                exit 1
+            fi
             shift 2
             ;;
         --repository)
@@ -100,8 +111,14 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$PACKAGE" ] || [ -z "$VERSION" ]; then
-    echo "Usage: $0 <package> <version> [--conanfile <path>] [--user-channel <u/c>] [--extra-options <opts>] [--repository production|testing] [--no-upload]" >&2
+    echo "Usage: $0 <package> <version> [--conanfile <path>] [--user-channel <u/c>] [--extra-options <opts>] [--settings-mode linux-gcc-11|runner-default] [--repository production|testing] [--no-upload]" >&2
     exit 1
+fi
+
+if [ "$SETTINGS_MODE" = "linux-gcc-11" ]; then
+    CONAN_SETTINGS="$CONAN_SETTINGS_LINUX_GCC_11"
+else
+    CONAN_SETTINGS="$CONAN_SETTINGS_RUNNER_DEFAULT"
 fi
 
 # Restrict production uploads to master and release branches (3.x).
@@ -195,6 +212,7 @@ echo ""
 echo "=============================================="
 echo "Step 3: Building $PKG_REF"
 echo "=============================================="
+echo "Conan settings mode: $SETTINGS_MODE"
 
 USER_FLAGS=""
 if [ -n "$USER_CHANNEL" ]; then

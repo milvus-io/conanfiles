@@ -108,6 +108,50 @@ When triggering the workflow from the GitHub Actions page (**Run workflow** butt
 | Install Conan and dependencies | `pip install --user conan==2.25.1 pyyaml` | Install Conan 2.25.1, pyyaml, and detect default profile |
 | Build and push | `./scripts/build-and-push.sh` | Delegates to `scripts/build-and-push.sh` with workflow inputs passed as arguments (see [scripts/build-and-push.sh](#scriptsbuild-and-pushsh) for details) |
 
+---
+
+### try-build.yml
+
+Builds a package from a local recipe without uploading anything to Artifactory. Used to validate recipes on different OS before publishing.
+
+**Inputs:**
+
+| Input | Required | Description |
+|---|---|---|
+| `package` | Yes | Package name (e.g. `milvus-common`) |
+| `version` | Yes | Package version (e.g. `1.0.0-28a2b48`) |
+| `conanfile_path` | Yes | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
+| `runner` | Yes | GitHub-hosted runner: `ubuntu-24.04-arm` or `macos-15` |
+| `settings_mode` | Yes | Conan settings mode: `runner-default` or `linux-gcc-11` (default: `runner-default`) |
+| `user_channel` | No | User/channel for the package (e.g. `milvus/dev`) |
+| `extra_options` | No | Extra conan options (e.g. `-s compiler.cppstd=20 -o pkg:opt=val`) |
+
+**Settings modes:**
+
+| Mode | Description |
+|---|---|
+| `runner-default` | Uses `conan profile detect` from the selected runner for compiler/compiler version/libcxx, while forcing Release and default C++17. This is the recommended mode for both `ubuntu-24.04-arm` and `macos-15`; add `-s compiler.cppstd=<std>` in `extra_options` when a recipe needs a different C++ standard. |
+| `linux-gcc-11` | Uses the repo's existing Linux production settings: GCC 11, libstdc++11, C++17, Release. Use this when you need compatibility with existing Linux package IDs. |
+
+**Job: `try-build`**
+
+| Step | Command | Description |
+|---|---|---|
+| Install Conan and dependencies | `python -m pip install conan==2.25.1 pyyaml` | Install Conan 2.25.1, pyyaml, and detect the runner profile |
+| Try build | `./scripts/build-and-push.sh --repository testing --no-upload` | Builds the recipe through the standard script but skips Artifactory upload |
+
+**Example inputs for `milvus-common`:**
+
+| Input | Value |
+|---|---|
+| `package` | `milvus-common` |
+| `version` | `1.0.0-28a2b48` |
+| `conanfile_path` | `all/conanfile.py` |
+| `runner` | `ubuntu-24.04-arm` |
+| `settings_mode` | `runner-default` |
+| `user_channel` | `milvus/dev` |
+| `extra_options` | `-s compiler.cppstd=20` |
+
 ## Scripts for Manual Publish
 
 ### scripts/build-milvus-deps.sh
@@ -148,6 +192,7 @@ Builds a single Conan package from this repo's recipes and uploads the recipe an
 | `--conanfile <path>` | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
 | `--user-channel <u/c>` | User/channel for the package (e.g. `milvus/dev`) |
 | `--extra-options <opts>` | Extra conan options (e.g. `-o pkg:opt=val`) |
+| `--settings-mode <mode>` | Conan settings mode: `linux-gcc-11` or `runner-default` (default: `linux-gcc-11`) |
 | `--repository <repo>` | Target Artifactory repository: `production` or `testing` (default: `production`) |
 | `--no-upload` | Build only, skip uploading to Artifactory |
 
@@ -158,6 +203,7 @@ Builds a single Conan package from this repo's recipes and uploads the recipe an
 ./scripts/build-and-push.sh protobuf 5.27.0 --user-channel milvus/dev
 ./scripts/build-and-push.sh protobuf 5.27.0 --user-channel milvus/dev --repository testing
 ./scripts/build-and-push.sh folly 2024.08.12.00 --conanfile v2024/conanfile.py --user-channel milvus/dev --extra-options "-o folly/*:shared=True"
+./scripts/build-and-push.sh milvus-common 1.0.0-28a2b48 --user-channel milvus/dev --settings-mode runner-default --extra-options "-s compiler.cppstd=20" --no-upload
 ./scripts/build-and-push.sh zlib 1.3.1 --no-upload    # build only
 ```
 
