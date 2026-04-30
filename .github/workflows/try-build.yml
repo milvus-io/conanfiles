@@ -20,8 +20,11 @@ on:
         required: true
         type: choice
         options:
+          - ubuntu-22.04
+          - ubuntu-24.04
           - ubuntu-24.04-arm
           - macos-15
+          - macos-26
         default: ubuntu-24.04-arm
       settings_mode:
         description: 'Conan settings mode'
