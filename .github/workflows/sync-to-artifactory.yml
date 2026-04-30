@@ -1,5 +1,7 @@
 name: sync to artifactory
-description: download package from conan center and upload it and dpendency to jfrog artifactory
+
+run-name: sync ${{ inputs.package }}/${{ inputs.version }} to ${{ inputs.repository }}
+
 on:
   workflow_dispatch:
     inputs:
