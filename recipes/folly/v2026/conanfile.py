@@ -219,7 +219,14 @@ class FollyConan(ConanFile):
         rm(self, "Find*.cmake", os.path.join(self.source_folder, "CMake"))
         rm(self, "Find*.cmake", os.path.join(self.source_folder, "build", "fbcode_builder", "CMake"))
         # Skip generating .pc file to avoid Windows errors when trying to compile with pkg-config
-        replace_in_file(self, os.path.join(self.source_folder, "CMakeLists.txt"), "gen_pkgconfig_vars(FOLLY_PKGCONFIG folly_deps)", "")
+        cmakelists = os.path.join(self.source_folder, "CMakeLists.txt")
+        replace_in_file(self, cmakelists, "gen_pkgconfig_vars(FOLLY_PKGCONFIG folly_deps)", "")
+        replace_in_file(
+            self,
+            cmakelists,
+            "project(${PACKAGE_NAME} CXX C ASM)",
+            'project(${PACKAGE_NAME} CXX C ASM)\nset(CMAKE_ASM_CREATE_SHARED_LIBRARY "${CMAKE_CXX_CREATE_SHARED_LIBRARY}")',
+        )
 
     def build(self):
         self._patch_sources()
