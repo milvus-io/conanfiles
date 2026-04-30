@@ -1,6 +1,6 @@
 name: build and push
 
-run-name: build and push ${{ inputs.package }}/${{ inputs.version }} to ${{ inputs.repository }}
+run-name: build and push ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} to ${{ inputs.repository }}
 
 on:
   workflow_dispatch:
