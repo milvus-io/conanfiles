@@ -6,6 +6,7 @@ from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 from conan.tools.files import copy, get, replace_in_file
 from conan.tools.gnu import PkgConfigDeps
 from conan.tools.microsoft import is_msvc, msvc_runtime_flag
+from conan.tools.system.package_manager import Brew
 
 
 required_conan_version = ">=2.0"
@@ -34,6 +35,7 @@ class MilvusCommonConan(ConanFile):
         "openblas/*:use_openmp": True,
         "opentelemetry-cpp/*:with_stl": True,
         "openssl/*:shared": True,
+        "openssl/*:no_apps": True,
         "prometheus-cpp/*:with_pull": False,
         "with_ut": False,
         "with_asan": False,
@@ -41,27 +43,41 @@ class MilvusCommonConan(ConanFile):
 
     @property
     def _minimum_cpp_standard(self):
-        return 17
+        return 20
 
     def validate(self):
         check_min_cppstd(self, self._minimum_cpp_standard)
 
-    def requirements(self):
+    def system_requirements(self):
+        if self.settings.os == "Macos":
+            Brew(self).install(["libomp"])
+
+    def build_requirements(self):
         if self.options.with_ut:
-            self.requires("gtest/1.15.0", visible=False)
-        self.requires("glog/0.7.1", transitive_headers=True, transitive_libs=True)
-        self.requires("fmt/11.0.2", transitive_headers=True, transitive_libs=True)
-        self.requires("prometheus-cpp/1.2.4", transitive_headers=True, transitive_libs=True)
-        self.requires("gflags/2.2.2", transitive_headers=True, transitive_libs=True)
-        self.requires("opentelemetry-cpp/1.23.0@milvus/dev", transitive_headers=True, transitive_libs=True)
-        self.requires("folly/2024.08.12.00@milvus/dev", transitive_headers=True, transitive_libs=True)
-        self.requires("protobuf/5.27.0@milvus/dev", override=True)
-        self.requires("lz4/1.9.4", override=True)
-        self.requires("openssl/3.3.2", override=True)
-        self.requires("libcurl/8.10.1", override=True)
-        self.requires("nlohmann_json/3.11.3", force=True)
+            self.test_requires("gtest/1.15.0")
+
+    def requirements(self):
+        self.requires("glog/0.7.1#a306e61d7b8311db8cb148ad62c48030", transitive_headers=True, transitive_libs=True)
+        self.requires("fmt/11.2.0#eb98daa559c7c59d591f4720dde4cd5c", transitive_headers=True, transitive_libs=True, force=True)
+        self.requires("prometheus-cpp/1.2.4#0918d66c13f97acb7809759f9de49b3f", transitive_headers=True, transitive_libs=True)
+        self.requires("gflags/2.2.2#7671803f1dc19354cc90bd32874dcfda", transitive_headers=False, transitive_libs=False)
+        self.requires("opentelemetry-cpp/1.23.0@milvus/dev#11bc565ec6e82910ae8f7471da756720", transitive_headers=True, transitive_libs=True)
+        self.requires("folly/2026.04.20.00@milvus/dev#06852bea5b6449f0c4eb0df002b5779c", transitive_headers=True, transitive_libs=True)
+        self.requires("grpc/1.67.1@milvus/dev#efeaa484b59bffaa579004d5e82ec4fd", transitive_headers=False, transitive_libs=False, override=True)
+        self.requires("abseil/20250127.0#481edcc75deb0efb16500f511f0f0a1c", transitive_headers=False, transitive_libs=False, override=True)
+        self.requires("xz_utils/5.4.5#fc4e36861e0a47ecd4a40a00e6d29ac8", transitive_headers=False, transitive_libs=False, override=True)
+        self.requires("zlib/1.3.1#8045430172a5f8d56ba001b14561b4ea", transitive_headers=False, transitive_libs=False, override=True)
+        self.requires("libevent/2.1.12#95065aaefcd58d3956d6dfbfc5631d97", transitive_headers=False, transitive_libs=False, override=True)
+        self.requires("boost/1.83.0#4e8a94ac1b88312af95eded83cd81ca8", transitive_headers=True, transitive_libs=False)
+        self.requires("protobuf/5.27.0@milvus/dev#42f031a96d21c230a6e05bcac4bdd633", transitive_headers=False, transitive_libs=False, force=True, override=True)
+        self.requires("lz4/1.9.4#7f0b5851453198536c14354ee30ca9ae", transitive_headers=False, transitive_libs=False, force=True, override=True)
+        self.requires("openssl/3.3.2#9f9f130d58e7c13e76bb8a559f0a6a8b", transitive_headers=False, transitive_libs=False, force=True, override=True)
+        self.requires("libcurl/8.10.1#a3113369c86086b0e84231844e7ed0a9", transitive_headers=False, transitive_libs=False, force=True, override=True)
+        self.requires("nlohmann_json/3.11.3#ffb9e9236619f1c883e36662f944345d", transitive_headers=False, transitive_libs=False, force=True)
         if self.settings.os != "Macos":
-            self.requires("openblas/0.3.30", transitive_headers=True, transitive_libs=True)
+            self.requires("libunwind/1.8.1#748a981ace010b80163a08867b732e71", transitive_headers=False, transitive_libs=False, override=True)
+        if self.settings.os == "Linux":
+            self.requires("openblas/0.3.30", transitive_headers=True, transitive_libs=False)
 
     def layout(self):
         cmake_layout(self, src_folder="src")
@@ -127,6 +143,7 @@ class MilvusCommonConan(ConanFile):
         self.cpp_info.libs = ["milvus-common"]
         self.cpp_info.defines = ["OPENTELEMETRY_STL_VERSION=2017"]
         self.cpp_info.requires = [
+            "boost::headers",
             "opentelemetry-cpp::opentelemetry_trace",
             "opentelemetry-cpp::opentelemetry_exporter_ostream_span",
             "opentelemetry-cpp::opentelemetry_exporter_otlp_http",
@@ -138,7 +155,7 @@ class MilvusCommonConan(ConanFile):
             "prometheus-cpp::prometheus-cpp-core",
             "prometheus-cpp::prometheus-cpp-push",
         ]
-        if self.dependencies["opentelemetry-cpp"].options.with_otlp_grpc:
+        if self.dependencies["opentelemetry-cpp"].options.get_safe("with_otlp_grpc"):
             self.cpp_info.requires.append("opentelemetry-cpp::opentelemetry_exporter_otlp_grpc")
             self.cpp_info.defines.append("HAVE_OTLP_GRPC_EXPORTER")
         if self.settings.os == "Linux":
