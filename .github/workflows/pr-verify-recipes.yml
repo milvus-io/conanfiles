@@ -1,0 +1,71 @@
+name: PR Verification
+
+on:
+  pull_request:
+    paths:
+      - 'recipes/**'
+      - 'scripts/build-and-push.sh'
+      - 'scripts/pr-detection.py'
+      - '.github/workflows/pr-verify-recipes.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify-recipes:
+    name: verify recipe versions
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Conan and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install conan==2.25.1 pyyaml
+          conan --version
+          conan profile detect
+
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2/p
+          key: conan2-pr-ubuntu-22.04-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', 'scripts/pr-detection.py', '.github/workflows/pr-verify-recipes.yml') }}
+          restore-keys: |
+            conan2-pr-ubuntu-22.04-
+            conan2-ubuntu-
+
+      - name: Detect recipe versions to verify
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          TARGETS_FILE: ${{ runner.temp }}/recipe-targets.tsv
+        run: |
+          python3 scripts/pr-detection.py
+
+      - name: Build selected recipe versions
+        if: steps.detect.outputs.count != '0'
+        env:
+          TARGETS_FILE: ${{ runner.temp }}/recipe-targets.tsv
+        run: |
+          while IFS=$'\t' read -r package version conanfile; do
+            echo "=============================================="
+            echo "Verifying ${package}/${version}"
+            echo "=============================================="
+
+            ARGS=("$package" "$version" --conanfile "$conanfile" --settings-mode runner-default --repository testing --no-upload)
+            ARGS+=(--extra-options "-s compiler.cppstd=20 -s:b compiler.cppstd=20")
+
+            ./scripts/build-and-push.sh "${ARGS[@]}"
+          done < "$TARGETS_FILE"

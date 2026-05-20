@@ -1,0 +1,29 @@
+pull_request_rules:
+  - name: Add ci-passed when PR verification passed
+    conditions:
+      - base=master
+      - 'files~=^(recipes/|scripts/(build-and-push\.sh|pr-detection\.py)$|\.github/workflows/pr-verify-recipes\.yml$)'
+      - 'check-success=verify recipe versions'
+    actions:
+      label:
+        add:
+          - ci-passed
+
+  - name: Add ci-passed for PR verification skipped changes
+    conditions:
+      - base=master
+      - '-files~=^(recipes/|scripts/(build-and-push\.sh|pr-detection\.py)$|\.github/workflows/pr-verify-recipes\.yml$)'
+    actions:
+      label:
+        add:
+          - ci-passed
+
+  - name: Remove ci-passed when PR verification is not successful
+    conditions:
+      - base=master
+      - 'files~=^(recipes/|scripts/(build-and-push\.sh|pr-detection\.py)$|\.github/workflows/pr-verify-recipes\.yml$)'
+      - '-check-success=verify recipe versions'
+    actions:
+      label:
+        remove:
+          - ci-passed
