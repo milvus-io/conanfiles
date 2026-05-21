@@ -1,0 +1,66 @@
+name: Publish Merged Recipes
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+    paths:
+      - 'recipes/**'
+      - 'scripts/pr-detection.py'
+      - '.github/workflows/build-and-push.yml'
+      - '.github/workflows/publish-merged-recipes.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  trigger-build-and-push:
+    name: trigger build and push
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install detection dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+
+      - name: Detect recipe versions to publish
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          TARGETS_FILE: ${{ runner.temp }}/recipe-targets.tsv
+        run: |
+          python3 scripts/pr-detection.py
+
+      - name: Trigger build-and-push workflow
+        if: steps.detect.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          TARGETS_FILE: ${{ runner.temp }}/recipe-targets.tsv
+        run: |
+          while IFS=$'\t' read -r package version conanfile; do
+            echo "Triggering build-and-push for ${package}/${version}@milvus/dev"
+
+            gh workflow run build-and-push.yml \
+              --ref "$BASE_REF" \
+              -f "package=${package}" \
+              -f "version=${version}" \
+              -f "conanfile_path=${conanfile}" \
+              -f "repository=production" \
+              -f "user_channel=milvus/dev" \
+              -f "extra_options=-s compiler.cppstd=20 -s:b compiler.cppstd=20"
+          done < "$TARGETS_FILE"
