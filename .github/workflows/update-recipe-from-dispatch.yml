@@ -1,0 +1,133 @@
+name: Update Recipe From Dispatch
+
+run-name: update recipe from ${{ github.event.client_payload.source_repo }} ${{ github.event.client_payload.tag }}
+
+on:
+  repository_dispatch:
+    types:
+      - recipe-release
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-recipe:
+    name: create recipe update PR
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check bot token
+        env:
+          CONANFILES_BOT_TOKEN: ${{ secrets.CONANFILES_BOT_TOKEN }}
+        run: |
+          if [ -z "$CONANFILES_BOT_TOKEN" ]; then
+            echo "CONANFILES_BOT_TOKEN is required so generated PRs trigger verification workflows and can be merged." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install conan==2.25.1 pyyaml
+          conan --version
+          conan profile detect
+
+      - name: Generate recipe update
+        id: update
+        env:
+          TAG: ${{ github.event.client_payload.tag }}
+          COMMIT: ${{ github.event.client_payload.commit }}
+          SOURCE_REPO: ${{ github.event.client_payload.source_repo }}
+        run: |
+          python3 scripts/update-recipe-from-dispatch.py
+
+      - name: Validate generated files
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          git diff --check
+          git diff -- "${{ steps.update.outputs.recipe_config_path }}" "${{ steps.update.outputs.conandata_path }}"
+
+      - name: Export recipe
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          conan export "recipes/${{ steps.update.outputs.package }}/${{ steps.update.outputs.conanfile_path }}" \
+            --version="${{ steps.update.outputs.recipe_version }}" \
+            --user=milvus \
+            --channel=dev
+
+      - name: Create or update pull request
+        id: cpr
+        if: steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CONANFILES_BOT_TOKEN }}
+          branch: automation/${{ steps.update.outputs.package }}-${{ steps.update.outputs.recipe_version }}
+          delete-branch: true
+          signoff: true
+          title: Add ${{ steps.update.outputs.package }} ${{ steps.update.outputs.recipe_version }}
+          commit-message: Add ${{ steps.update.outputs.package }} ${{ steps.update.outputs.recipe_version }}
+          body: |
+            ## Summary
+            - Add `${{ steps.update.outputs.package }}/${{ steps.update.outputs.recipe_version }}@milvus/dev`.
+            - Source repo: `${{ github.event.client_payload.source_repo }}`.
+            - Source tag: `${{ github.event.client_payload.tag }}`.
+            - Source commit: `${{ github.event.client_payload.commit }}`.
+            - Source URL: `${{ steps.update.outputs.url }}`.
+            - Source SHA256: `${{ steps.update.outputs.sha256 }}`.
+
+            ## Validation
+            - `git diff --check`
+            - `conan export recipes/${{ steps.update.outputs.package }}/${{ steps.update.outputs.conanfile_path }} --version=${{ steps.update.outputs.recipe_version }} --user=milvus --channel=dev`
+
+      - name: Wait for ci-passed label and merge pull request
+        if: steps.update.outputs.changed == 'true' && steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.CONANFILES_BOT_TOKEN }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          deadline=$((SECONDS + 7200))
+
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
+            if grep -Fxq "ci-passed" <<<"$labels"; then
+              gh pr merge "$PR_NUMBER" --rebase --delete-branch
+              exit 0
+            fi
+
+            state=$(gh pr view "$PR_NUMBER" --json state --jq '.state')
+            if [ "$state" != "OPEN" ]; then
+              echo "Pull request #$PR_NUMBER is $state before ci-passed was added" >&2
+              exit 1
+            fi
+
+            verify_result=$(gh pr checks "$PR_NUMBER" \
+              --json name,bucket,state,conclusion \
+              --jq '.[] | select(.name == "verify recipe versions") | [.bucket, .state, .conclusion] | @tsv' 2>/dev/null | tail -n 1 || true)
+            if [ -n "$verify_result" ]; then
+              verify_bucket=$(cut -f1 <<<"$verify_result")
+              verify_state=$(cut -f2 <<<"$verify_result")
+              verify_conclusion=$(cut -f3 <<<"$verify_result")
+
+              case "$verify_bucket" in
+                fail|cancel|skipping)
+                  echo "verify recipe versions did not pass: bucket=$verify_bucket state=$verify_state conclusion=$verify_conclusion" >&2
+                  exit 1
+                  ;;
+              esac
+            fi
+
+            sleep 30
+          done
+
+          echo "Timed out waiting for ci-passed label on pull request #$PR_NUMBER" >&2
+          exit 1
