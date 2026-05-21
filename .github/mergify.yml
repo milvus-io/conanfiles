@@ -2,7 +2,7 @@ pull_request_rules:
   - name: Add needs-dco label when DCO check failed
     conditions:
       - base=master
-      - -status-success=DCO
+      - -check-success=DCO
     actions:
       label:
         remove:
@@ -13,7 +13,7 @@ pull_request_rules:
   - name: Add dco-passed label when DCO check passed
     conditions:
       - base=master
-      - status-success=DCO
+      - check-success=DCO
     actions:
       label:
         remove:
