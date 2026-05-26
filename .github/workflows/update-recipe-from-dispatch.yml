@@ -89,45 +89,59 @@ jobs:
             - `git diff --check`
             - `conan export recipes/${{ steps.update.outputs.package }}/${{ steps.update.outputs.conanfile_path }} --version=${{ steps.update.outputs.recipe_version }} --user=milvus --channel=dev`
 
-      - name: Wait for ci-passed label and merge pull request
+      - name: Wait for required checks and merge pull request
         if: steps.update.outputs.changed == 'true' && steps.cpr.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ secrets.CONANFILES_BOT_TOKEN }}
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
         run: |
           deadline=$((SECONDS + 7200))
+          required_checks=("verify recipe versions" "DCO")
 
           while [ "$SECONDS" -lt "$deadline" ]; do
-            labels=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name')
-            if grep -Fxq "ci-passed" <<<"$labels"; then
-              gh pr merge "$PR_NUMBER" --rebase --delete-branch
-              exit 0
-            fi
-
-            state=$(gh pr view "$PR_NUMBER" --json state --jq '.state')
-            if [ "$state" != "OPEN" ]; then
-              echo "Pull request #$PR_NUMBER is $state before ci-passed was added" >&2
+            pr_state=$(gh pr view "$PR_NUMBER" --json state --jq '.state')
+            if [ "$pr_state" != "OPEN" ]; then
+              echo "Pull request #$PR_NUMBER is $pr_state before required checks passed" >&2
               exit 1
             fi
 
-            verify_result=$(gh pr checks "$PR_NUMBER" \
-              --json name,bucket,state,conclusion \
-              --jq '.[] | select(.name == "verify recipe versions") | [.bucket, .state, .conclusion] | @tsv' 2>/dev/null | tail -n 1 || true)
-            if [ -n "$verify_result" ]; then
-              verify_bucket=$(cut -f1 <<<"$verify_result")
-              verify_state=$(cut -f2 <<<"$verify_result")
-              verify_conclusion=$(cut -f3 <<<"$verify_result")
+            checks_json=$(gh pr checks "$PR_NUMBER" --json name,bucket,state,conclusion 2>/dev/null || true)
+            if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$checks_json"; then
+              checks_json="[]"
+            fi
+            all_passed=true
 
-              case "$verify_bucket" in
+            for check in "${required_checks[@]}"; do
+              result=$(jq -r --arg check "$check" '.[] | select(.name == $check) | [.bucket, .state, .conclusion] | @tsv' <<<"$checks_json" | tail -n 1 || true)
+              if [ -z "$result" ]; then
+                all_passed=false
+                continue
+              fi
+
+              bucket=$(cut -f1 <<<"$result")
+              state=$(cut -f2 <<<"$result")
+              conclusion=$(cut -f3 <<<"$result")
+
+              case "$bucket" in
+                pass)
+                  ;;
                 fail|cancel|skipping)
-                  echo "verify recipe versions did not pass: bucket=$verify_bucket state=$verify_state conclusion=$verify_conclusion" >&2
+                  echo "$check did not pass: bucket=$bucket state=$state conclusion=$conclusion" >&2
                   exit 1
                   ;;
+                *)
+                  all_passed=false
+                  ;;
               esac
+            done
+
+            if [ "$all_passed" = true ]; then
+              gh pr merge "$PR_NUMBER" --rebase --delete-branch
+              exit 0
             fi
 
             sleep 30
           done
 
-          echo "Timed out waiting for ci-passed label on pull request #$PR_NUMBER" >&2
+          echo "Timed out waiting for required checks on pull request #$PR_NUMBER" >&2
           exit 1
