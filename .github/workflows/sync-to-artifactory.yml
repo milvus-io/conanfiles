@@ -1,6 +1,6 @@
-name: sync to artifactory
+name: Sync to Artifactory
 
-run-name: sync ${{ inputs.package }}/${{ inputs.version }} to ${{ inputs.repository }}
+run-name: Sync ${{ inputs.package }}/${{ inputs.version }} to ${{ inputs.repository }}
 
 on:
   workflow_dispatch:

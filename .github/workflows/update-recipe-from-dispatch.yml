@@ -1,6 +1,6 @@
 name: Update Recipe From Dispatch
 
-run-name: update recipe from ${{ github.event.client_payload.source_repo }} ${{ github.event.client_payload.tag }}
+run-name: Update recipe from ${{ github.event.client_payload.source_repo }} ${{ github.event.client_payload.tag }}
 
 on:
   repository_dispatch:
@@ -10,6 +10,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read
+  statuses: read
 
 jobs:
   update-recipe:
@@ -84,6 +86,9 @@ jobs:
             - Source commit: `${{ github.event.client_payload.commit }}`.
             - Source URL: `${{ steps.update.outputs.url }}`.
             - Source SHA256: `${{ steps.update.outputs.sha256 }}`.
+            - Verification C++ standard: `${{ steps.update.outputs.cppstd }}`.
+
+            <!-- recipe-verify-cppstd=${{ steps.update.outputs.cppstd }} -->
 
             ## Validation
             - `git diff --check`
@@ -97,36 +102,74 @@ jobs:
         run: |
           deadline=$((SECONDS + 7200))
           required_checks=("verify recipe versions" "DCO")
+          state_query_failures=0
+          checks_query_failures=0
+          state_error=$(mktemp)
+          checks_error=$(mktemp)
+          trap 'rm -f "$state_error" "$checks_error"' EXIT
 
           while [ "$SECONDS" -lt "$deadline" ]; do
-            pr_state=$(gh pr view "$PR_NUMBER" --json state --jq '.state')
+            if ! pr_state=$(gh pr view "$PR_NUMBER" --json state --jq '.state' 2>"$state_error"); then
+              state_query_failures=$((state_query_failures + 1))
+              state_error_message=$(<"$state_error")
+              : >"$state_error"
+              echo "Unable to read pull request state; will retry: $state_error_message" >&2
+              if [ "$state_query_failures" -ge 10 ]; then
+                echo "Failed to query pull request state $state_query_failures consecutive times" >&2
+                exit 1
+              fi
+              sleep 30
+              continue
+            fi
+            : >"$state_error"
+            state_query_failures=0
             if [ "$pr_state" != "OPEN" ]; then
               echo "Pull request #$PR_NUMBER is $pr_state before required checks passed" >&2
               exit 1
             fi
 
-            checks_json=$(gh pr checks "$PR_NUMBER" --json name,bucket,state,conclusion 2>/dev/null || true)
-            if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$checks_json"; then
-              checks_json="[]"
+            if ! checks_tsv=$(gh pr view "$PR_NUMBER" --json statusCheckRollup --jq '.statusCheckRollup[] | [.name, .status, .conclusion] | @tsv' 2>"$checks_error"); then
+              checks_query_failures=$((checks_query_failures + 1))
+              checks_error_message=$(<"$checks_error")
+              : >"$checks_error"
+              echo "Unable to read pull request checks; will retry: $checks_error_message" >&2
+              if [ "$checks_query_failures" -ge 10 ]; then
+                echo "Failed to query pull request checks $checks_query_failures consecutive times" >&2
+                exit 1
+              fi
+              sleep 30
+              continue
             fi
+            : >"$checks_error"
+            checks_query_failures=0
             all_passed=true
 
             for check in "${required_checks[@]}"; do
-              result=$(jq -r --arg check "$check" '.[] | select(.name == $check) | [.bucket, .state, .conclusion] | @tsv' <<<"$checks_json" | tail -n 1 || true)
+              result=""
+              while IFS=$'\t' read -r name status conclusion; do
+                if [ "$name" = "$check" ]; then
+                  result="${status}"$'\t'"${conclusion}"
+                fi
+              done <<< "$checks_tsv"
+
               if [ -z "$result" ]; then
                 all_passed=false
                 continue
               fi
 
-              bucket=$(cut -f1 <<<"$result")
-              state=$(cut -f2 <<<"$result")
-              conclusion=$(cut -f3 <<<"$result")
+              status=${result%%$'\t'*}
+              conclusion=${result#*$'\t'}
 
-              case "$bucket" in
-                pass)
+              if [ "$status" != "COMPLETED" ]; then
+                all_passed=false
+                continue
+              fi
+
+              case "$conclusion" in
+                SUCCESS)
                   ;;
-                fail|cancel|skipping)
-                  echo "$check did not pass: bucket=$bucket state=$state conclusion=$conclusion" >&2
+                FAILURE|CANCELLED|TIMED_OUT|ACTION_REQUIRED|SKIPPED|STALE)
+                  echo "$check did not pass: status=$status conclusion=$conclusion" >&2
                   exit 1
                   ;;
                 *)

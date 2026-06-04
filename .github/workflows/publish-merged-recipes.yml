@@ -1,5 +1,7 @@
 name: Publish Merged Recipes
 
+run-name: "Publish merged recipes from PR #${{ github.event.pull_request.number }}"
+
 on:
   pull_request_target:
     types: [closed]
