@@ -14,26 +14,31 @@ RECIPE_SOURCES = {
         "package": "milvus-common",
         "folder": "all",
         "url": "https://github.com/{source_repo}/archive/refs/tags/{tag}.tar.gz",
+        "cppstd": "20",
     },
     "milvus-io/milvus-sdk-cpp": {
         "package": "milvus-sdk-cpp",
         "folder": "all",
         "url": "https://github.com/{source_repo}/archive/refs/tags/{tag}.tar.gz",
+        "cppstd": "14",
     },
     "zilliztech/knowhere": {
         "package": "knowhere",
         "folder": "all",
         "url": "https://github.com/{source_repo}/archive/refs/tags/{tag}.tar.gz",
+        "cppstd": "20",
     },
     "zilliztech/cardinal": {
         "package": "cardinal",
         "folder": "all",
         "url": "https://github.com/{source_repo}/archive/refs/tags/{tag}.tar.gz",
+        "cppstd": "20",
     },
     "milvus-io/milvus-storage": {
         "package": "milvus-storage",
         "folder": "all",
         "url": "https://github.com/{source_repo}/archive/refs/tags/{tag}.tar.gz",
+        "cppstd": "20",
     },
 }
 
@@ -57,6 +62,7 @@ recipe_version = TAG[1:] if TAG.startswith("v") and len(TAG) > 1 and TAG[1].isdi
 recipe = RECIPE_SOURCES[SOURCE_REPO]
 package = recipe["package"]
 folder = recipe["folder"]
+cppstd = recipe.get("cppstd", "20")
 url = recipe["url"].format(source_repo=SOURCE_REPO, tag=TAG, commit=COMMIT)
 config_path = Path("recipes", package, "config.yml")
 conandata_path = Path("recipes", package, folder, "conandata.yml")
@@ -143,6 +149,7 @@ if changed:
     print(f"  commit: {COMMIT}")
     print(f"  url: {url}")
     print(f"  sha256: {sha256}")
+    print(f"  cppstd: {cppstd}")
 
 write_output(
     package=package,
@@ -152,5 +159,6 @@ write_output(
     conandata_path=str(conandata_path),
     url=url,
     sha256=sha256,
+    cppstd=cppstd,
     changed=str(changed).lower(),
 )

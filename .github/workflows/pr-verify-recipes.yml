@@ -1,5 +1,7 @@
 name: PR Verification
 
+run-name: "Verify recipes for PR #${{ github.event.pull_request.number }}"
+
 on:
   pull_request:
     paths:
@@ -54,18 +56,39 @@ jobs:
         run: |
           python3 scripts/pr-detection.py
 
+      - name: Detect verification C++ standard
+        id: cppstd
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          cppstd=$(sed -n 's/.*recipe-verify-cppstd=\([0-9][0-9]*\).*/\1/p' <<<"$PR_BODY" | tail -n 1)
+          if [ -z "$cppstd" ]; then
+            cppstd=20
+          fi
+          case "$cppstd" in
+            11|14|17|20|23)
+              ;;
+            *)
+              echo "Unsupported recipe-verify-cppstd value: $cppstd. Supported values: 11, 14, 17, 20, 23." >&2
+              exit 1
+              ;;
+          esac
+          echo "cppstd=$cppstd" >> "$GITHUB_OUTPUT"
+          echo "Using compiler.cppstd=$cppstd"
+
       - name: Build selected recipe versions
         if: steps.detect.outputs.count != '0'
         env:
           TARGETS_FILE: ${{ runner.temp }}/recipe-targets.tsv
+          CPPSTD: ${{ steps.cppstd.outputs.cppstd }}
         run: |
           while IFS=$'\t' read -r package version conanfile; do
             echo "=============================================="
-            echo "Verifying ${package}/${version}"
+            echo "Verifying ${package}/${version} with C++${CPPSTD}"
             echo "=============================================="
 
             ARGS=("$package" "$version" --conanfile "$conanfile" --settings-mode runner-default --repository testing --no-upload)
-            ARGS+=(--extra-options "-s compiler.cppstd=20 -s:b compiler.cppstd=20")
+            ARGS+=(--extra-options "-s compiler.cppstd=${CPPSTD} -s:b compiler.cppstd=${CPPSTD}")
 
             ./scripts/build-and-push.sh "${ARGS[@]}"
           done < "$TARGETS_FILE"

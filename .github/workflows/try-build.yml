@@ -1,6 +1,6 @@
-name: try build
+name: Try Build
 
-run-name: try build ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} on ${{ inputs.runner }}
+run-name: Try build ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} on ${{ inputs.runner }}
 
 on:
   workflow_dispatch:
