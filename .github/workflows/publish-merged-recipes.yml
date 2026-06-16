@@ -47,15 +47,36 @@ jobs:
         run: |
           python3 scripts/pr-detection.py
 
+      - name: Detect publish C++ standard
+        id: cppstd
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          cppstd=$(sed -n 's/.*recipe-verify-cppstd=\([0-9][0-9]*\).*/\1/p' <<<"$PR_BODY" | tail -n 1)
+          if [ -z "$cppstd" ]; then
+            cppstd=20
+          fi
+          case "$cppstd" in
+            11|14|17|20|23)
+              ;;
+            *)
+              echo "Unsupported recipe-verify-cppstd value: $cppstd. Supported values: 11, 14, 17, 20, 23." >&2
+              exit 1
+              ;;
+          esac
+          echo "cppstd=$cppstd" >> "$GITHUB_OUTPUT"
+          echo "Using compiler.cppstd=$cppstd"
+
       - name: Trigger build-and-push workflow
         if: steps.detect.outputs.count != '0'
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           TARGETS_FILE: ${{ runner.temp }}/recipe-targets.tsv
+          CPPSTD: ${{ steps.cppstd.outputs.cppstd }}
         run: |
           while IFS=$'\t' read -r package version conanfile; do
-            echo "Triggering build-and-push for ${package}/${version}@milvus/dev"
+            echo "Triggering build-and-push for ${package}/${version}@milvus/dev with C++${CPPSTD}"
 
             gh workflow run build-and-push.yml \
               --ref "$BASE_REF" \
@@ -64,5 +85,5 @@ jobs:
               -f "conanfile_path=${conanfile}" \
               -f "repository=production" \
               -f "user_channel=milvus/dev" \
-              -f "extra_options=-s compiler.cppstd=20 -s:b compiler.cppstd=20"
+              -f "extra_options=-s compiler.cppstd=${CPPSTD} -s:b compiler.cppstd=${CPPSTD}"
           done < "$TARGETS_FILE"
