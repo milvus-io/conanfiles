@@ -215,7 +215,7 @@ class ArrowConan(ConanFile):
         if self.options.with_orc:
             self.requires("orc/2.0.0")
         if self.options.with_azure:
-            self.requires("azure-sdk-for-cpp/1.11.3@milvus/dev")
+            self.requires("azure-sdk-for-cpp/1.16.0@milvus/dev")
 
     def validate(self):
         # Do not allow options with 'auto' value
@@ -390,6 +390,35 @@ class ArrowConan(ConanFile):
 
     def _patch_sources(self):
         apply_conandata_patches(self)
+        if self.options.get_safe("with_azure"):
+            # We depend on the monolithic conan "azure-sdk-for-cpp" package
+            # (cmake_file_name "Azure", targets Azure::azure-core etc.), but
+            # Arrow's upstream FindAzure.cmake looks for the split packages
+            # azure-core-cpp / azure-identity-cpp / azure-storage-*-cpp. Arrow
+            # actually links the Azure::* targets, so redirect FindAzure to the
+            # monolithic Azure config and satisfy its REQUIRED_VARS.
+            findazure = os.path.join(self.source_folder, "cpp", "cmake_modules", "FindAzure.cmake")
+            if os.path.isfile(findazure):
+                save(self, findazure,
+                     "# Patched by milvus conanfiles: use the monolithic conan 'Azure' package.\n"
+                     "if(Azure_FOUND)\n"
+                     "  return()\n"
+                     "endif()\n"
+                     "set(_milvus_azure_args CONFIG)\n"
+                     "if(Azure_FIND_QUIETLY)\n"
+                     "  list(APPEND _milvus_azure_args QUIET)\n"
+                     "endif()\n"
+                     "if(Azure_FIND_REQUIRED)\n"
+                     "  list(APPEND _milvus_azure_args REQUIRED)\n"
+                     "endif()\n"
+                     "find_package(Azure ${_milvus_azure_args})\n"
+                     "set(azure-core-cpp_FOUND ${Azure_FOUND})\n"
+                     "set(azure-identity-cpp_FOUND ${Azure_FOUND})\n"
+                     "set(azure-storage-blobs-cpp_FOUND ${Azure_FOUND})\n"
+                     "set(azure-storage-common-cpp_FOUND ${Azure_FOUND})\n"
+                     "set(azure-storage-files-datalake-cpp_FOUND ${Azure_FOUND})\n"
+                     "include(FindPackageHandleStandardArgs)\n"
+                     "find_package_handle_standard_args(Azure REQUIRED_VARS Azure_FOUND VERSION_VAR Azure_VERSION)\n")
         if Version(self.version) < "10.0.0":
             for filename in glob.glob(os.path.join(self.source_folder, "cpp", "cmake_modules", "Find*.cmake")):
                 if os.path.basename(filename) not in [
