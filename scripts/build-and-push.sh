@@ -37,8 +37,8 @@ REMOTE_URL_TESTING="https://milvus01.jfrog.io/artifactory/api/conan/testing2"
 ARTIFACTORY_STORAGE_URL_TESTING="https://milvus01.jfrog.io/artifactory/api/storage/testing2"
 
 # Common conan settings
-CONAN_SETTINGS_LINUX_GCC_11="-s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s compiler.cppstd=17 -s build_type=Release -s:b compiler.cppstd=17"
-CONAN_SETTINGS_RUNNER_DEFAULT="-s build_type=Release -s:b build_type=Release -s compiler.cppstd=17 -s:b compiler.cppstd=17"
+CONAN_SETTINGS_LINUX_GCC_11="-s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s compiler.cppstd=20 -s build_type=Release -s:b compiler.cppstd=20"
+CONAN_SETTINGS_RUNNER_DEFAULT="-s build_type=Release -s:b build_type=Release -s compiler.cppstd=20 -s:b compiler.cppstd=20"
 
 # Use 6 parallel jobs for building
 CONAN_JOBS="-c tools.build:jobs=6"
@@ -280,7 +280,11 @@ for repo in data.values():
     echo ""
 
     # Upload only the target recipe and its dependencies (recipe-only)
-    conan upload --list="$PKGLIST" -r "$REMOTE_NAME" -c --only-recipe
+    if ! UPLOAD_OUTPUT=$(conan upload --list="$PKGLIST" -r "$REMOTE_NAME" -c --only-recipe 2>&1); then
+        echo "$UPLOAD_OUTPUT"
+        exit 1
+    fi
+    echo "$UPLOAD_OUTPUT"
 
     # ========================================================================
     # Step 6: Set build metadata properties on the uploaded recipe
@@ -305,36 +309,47 @@ for repo in data.values():
 " 2>/dev/null)
 
     if [ -n "$RECIPE_REV" ]; then
-        BUILD_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-        BUILD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-        BUILD_DATETIME=$(LC_ALL=C date -u +"%d %b %Y %H:%M:%S")
-        BUILD_AUTHOR=$(git log -1 --format='%an' 2>/dev/null || echo "unknown")
+        TARGET_REV="${PKG_REF}#${RECIPE_REV}"
+        TARGET_WAS_UPLOADED=false
 
-        # URL-encode spaces for JFrog REST API
-        ENCODED_DATETIME=$(echo "$BUILD_DATETIME" | sed 's/ /%20/g')
-        ENCODED_AUTHOR=$(echo "$BUILD_AUTHOR" | sed 's/ /%20/g')
-
-        PROPS="build.branch=${BUILD_BRANCH};build.commit=${BUILD_COMMIT};build.datetime=${ENCODED_DATETIME};build.author=${ENCODED_AUTHOR}"
-
-        # Build artifact path: user/name/version/channel/revision for @user/channel,
-        # or _/name/version/_/revision for packages without user/channel
-        if [ -n "$USER_CHANNEL" ]; then
-            ARTIFACT_USER="${USER_CHANNEL%%/*}"
-            ARTIFACT_CHANNEL="${USER_CHANNEL#*/}"
-        else
-            ARTIFACT_USER="_"
-            ARTIFACT_CHANNEL="_"
+        if grep -Fq "$TARGET_REV" <<< "$UPLOAD_OUTPUT" && ! grep -Fq "${TARGET_REV}' already in server, skipping upload" <<< "$UPLOAD_OUTPUT"; then
+            TARGET_WAS_UPLOADED=true
         fi
-        ARTIFACT_PATH="${ARTIFACT_USER}/${PACKAGE}/${VERSION}/${ARTIFACT_CHANNEL}/${RECIPE_REV}/export/conanfile.py"
 
-        curl -s -u "${JFROG_USERNAME2}:${JFROG_PASSWORD2}" -X PUT \
-            "${ARTIFACTORY_STORAGE_URL}/${ARTIFACT_PATH}?properties=${PROPS}" > /dev/null
+        if [ "$TARGET_WAS_UPLOADED" = true ]; then
+            BUILD_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+            BUILD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+            BUILD_DATETIME=$(LC_ALL=C date -u +"%d %b %Y %H:%M:%S")
+            BUILD_AUTHOR=$(git log -1 --format='%an' 2>/dev/null || echo "unknown")
 
-        echo "Properties set on ${PKG_REF}#${RECIPE_REV}:"
-        echo "  build.branch   = ${BUILD_BRANCH}"
-        echo "  build.commit   = ${BUILD_COMMIT}"
-        echo "  build.datetime = ${BUILD_DATETIME}"
-        echo "  build.author   = ${BUILD_AUTHOR}"
+            # URL-encode spaces for JFrog REST API
+            ENCODED_DATETIME=$(echo "$BUILD_DATETIME" | sed 's/ /%20/g')
+            ENCODED_AUTHOR=$(echo "$BUILD_AUTHOR" | sed 's/ /%20/g')
+
+            PROPS="build.branch=${BUILD_BRANCH};build.commit=${BUILD_COMMIT};build.datetime=${ENCODED_DATETIME};build.author=${ENCODED_AUTHOR}"
+
+            # Build artifact path: user/name/version/channel/revision for @user/channel,
+            # or _/name/version/_/revision for packages without user/channel
+            if [ -n "$USER_CHANNEL" ]; then
+                ARTIFACT_USER="${USER_CHANNEL%%/*}"
+                ARTIFACT_CHANNEL="${USER_CHANNEL#*/}"
+            else
+                ARTIFACT_USER="_"
+                ARTIFACT_CHANNEL="_"
+            fi
+            ARTIFACT_PATH="${ARTIFACT_USER}/${PACKAGE}/${VERSION}/${ARTIFACT_CHANNEL}/${RECIPE_REV}/export/conanfile.py"
+
+            curl -s -u "${JFROG_USERNAME2}:${JFROG_PASSWORD2}" -X PUT \
+                "${ARTIFACTORY_STORAGE_URL}/${ARTIFACT_PATH}?properties=${PROPS}" > /dev/null
+
+            echo "Properties set on ${TARGET_REV}:"
+            echo "  build.branch   = ${BUILD_BRANCH}"
+            echo "  build.commit   = ${BUILD_COMMIT}"
+            echo "  build.datetime = ${BUILD_DATETIME}"
+            echo "  build.author   = ${BUILD_AUTHOR}"
+        else
+            echo "Recipe ${TARGET_REV} was not uploaded in this run; skipping metadata update"
+        fi
     else
         echo "Warning: could not determine recipe revision, skipping metadata"
     fi

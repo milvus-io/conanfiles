@@ -6,9 +6,30 @@ from pathlib import Path
 
 import yaml
 
-
-BASE_SHA = os.environ["BASE_SHA"]
+BASE_SHA = os.environ.get("BASE_SHA")
+PR_NUMBER = os.environ.get("PR_NUMBER")
+GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY")
+GH_TOKEN = os.environ.get("GH_TOKEN")
 TARGETS_FILE = Path(os.environ["TARGETS_FILE"])
+HEAD_REF = "HEAD"
+
+if not BASE_SHA and not PR_NUMBER:
+    raise SystemExit("Either BASE_SHA or PR_NUMBER must be provided")
+
+if PR_NUMBER and not GITHUB_REPOSITORY:
+    raise SystemExit("GITHUB_REPOSITORY must be provided when PR_NUMBER is set")
+
+if PR_NUMBER and not GH_TOKEN:
+    raise SystemExit("GH_TOKEN must be provided when PR_NUMBER is set")
+
+if PR_NUMBER and not BASE_SHA:
+    raise SystemExit("BASE_SHA is still required when PR_NUMBER is set so old file contents can be compared")
+
+if PR_NUMBER and not re.fullmatch(r"[0-9]+", PR_NUMBER):
+    raise SystemExit(f"Invalid PR_NUMBER: {PR_NUMBER!r}")
+
+if GITHUB_REPOSITORY and not re.fullmatch(r"[^/]+/[^/]+", GITHUB_REPOSITORY):
+    raise SystemExit(f"Invalid GITHUB_REPOSITORY: {GITHUB_REPOSITORY!r}")
 
 
 def git_stdout(args):
@@ -22,6 +43,42 @@ def git_stdout(args):
 
 def git_lines(args):
     return git_stdout(args).splitlines()
+
+
+def github_pr_files():
+    result = subprocess.run(
+        [
+            "gh",
+            "api",
+            f"repos/{GITHUB_REPOSITORY}/pulls/{PR_NUMBER}/files",
+            "--paginate",
+            "--jq",
+            ".[] | select(.status != \"removed\") | .filename",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "GH_TOKEN": GH_TOKEN},
+    )
+    return [line for line in result.stdout.splitlines() if line]
+
+
+CHANGED_FILES = github_pr_files() if PR_NUMBER else None
+
+
+def changed_files_matching(prefix):
+    if CHANGED_FILES is None:
+        return None
+    return [path for path in CHANGED_FILES if path.startswith(prefix)]
+
+
+def changed_config_files():
+    if CHANGED_FILES is None:
+        return None
+    return [
+        path for path in CHANGED_FILES
+        if path.startswith("recipes/") and path.endswith("/config.yml")
+    ]
 
 
 def load_yaml(path):
@@ -42,6 +99,12 @@ def load_yaml_at(ref, path):
     return yaml.safe_load(result.stdout) or {}
 
 
+def maybe_load_yaml_at_head(path):
+    if CHANGED_FILES is None:
+        return load_yaml(path)
+    return load_yaml_at(HEAD_REF, path)
+
+
 def version_folder(info):
     return info.get("folder", "all") if isinstance(info, dict) else "all"
 
@@ -59,6 +122,26 @@ def version_sort_key(version):
         else:
             tokens.append((0, token))
     return tuple(tokens), str(version)
+
+
+def pr_number_reason(path):
+    if PR_NUMBER:
+        return f"changed in PR #{PR_NUMBER}: {path}"
+    return f"changed {path}"
+
+
+def get_changed_configs():
+    configs = changed_config_files()
+    if configs is not None:
+        return configs
+    return git_lines(["diff", "--diff-filter=ACMR", "--name-only", BASE_SHA, HEAD_REF, "--", "recipes/*/config.yml"])
+
+
+def get_changed_recipe_files():
+    files = changed_files_matching("recipes/")
+    if files is not None:
+        return files
+    return git_lines(["diff", "--diff-filter=ACMR", "--name-only", BASE_SHA, HEAD_REF, "--", "recipes"])
 
 
 config_cache = {}
@@ -109,7 +192,7 @@ def pick_version_for_folder(package, folder):
 
 def changed_conandata_versions(path):
     old = load_yaml_at(BASE_SHA, path)
-    new = load_yaml(path)
+    new = maybe_load_yaml_at_head(path)
     changed = set()
     for section in ("sources", "patches"):
         old_values = old.get(section) or {}
@@ -158,7 +241,7 @@ def detect_recipe_file_changes(changed_recipe_files):
         if path.name == "conandata.yml":
             for version in sorted(changed_conandata_versions(changed_path), key=version_sort_key):
                 if version in versions_for(package):
-                    add_target(package, version, f"changed {changed_path}")
+                    add_target(package, version, pr_number_reason(changed_path))
 
         if folder_key not in seen_affected_folders:
             seen_affected_folders.add(folder_key)
@@ -168,7 +251,7 @@ def detect_recipe_file_changes(changed_recipe_files):
         if (package, folder) in covered_folders:
             continue
         version = pick_version_for_folder(package, folder)
-        add_target(package, version, f"changed {changed_path}")
+        add_target(package, version, pr_number_reason(changed_path))
 
 
 def write_outputs():
@@ -190,8 +273,10 @@ def write_outputs():
 
 
 def main():
-    changed_configs = git_lines(["diff", "--diff-filter=ACMR", "--name-only", BASE_SHA, "HEAD", "--", "recipes/*/config.yml"])
-    changed_recipe_files = git_lines(["diff", "--diff-filter=ACMR", "--name-only", BASE_SHA, "HEAD", "--", "recipes"])
+    changed_configs = get_changed_configs()
+    changed_recipe_files = get_changed_recipe_files()
+    print_source = f"PR #{PR_NUMBER}" if PR_NUMBER else f"git diff {BASE_SHA}..{HEAD_REF}"
+    print(f"detection_source: {print_source}")
     print("changed_configs:", changed_configs)
     print("changed_recipe_files:", changed_recipe_files)
 
