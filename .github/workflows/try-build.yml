@@ -47,6 +47,8 @@ jobs:
   try-build:
     name: try build (${{ github.event.inputs.runner }})
     runs-on: ${{ github.event.inputs.runner }}
+    env:
+      CONAN_HOME: ${{ startsWith(github.event.inputs.runner, 'macos-') && '/Users/runner/work/_temp/conan2' || '/home/runner/work/_temp/conan2' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,13 +63,35 @@ jobs:
           conan --version
           conan profile detect
 
-      - name: Cache Conan packages
+      - name: Detect try-build C++ standard
+        id: cppstd
+        env:
+          INPUT_EXTRA_OPTIONS: ${{ github.event.inputs.extra_options }}
+        run: |
+          cppstd=$(sed -nE 's/.*(^|[[:space:]])-s(:[hb])?([=]|[[:space:]]+)compiler\.cppstd=([0-9]+).*/\4/p' <<<"$INPUT_EXTRA_OPTIONS" | tail -n 1)
+          if [ -z "$cppstd" ]; then
+            cppstd=20
+          fi
+          case "$cppstd" in
+            11|14|17|20|23)
+              ;;
+            *)
+              echo "Unsupported compiler.cppstd value in extra_options: $cppstd. Supported values: 11, 14, 17, 20, 23." >&2
+              exit 1
+              ;;
+          esac
+
+          echo "Using compiler.cppstd=$cppstd"
+          echo "cppstd=$cppstd" >> "$GITHUB_OUTPUT"
+
+
+      - name: Cache Conan packages (cppstd-specific)
         uses: actions/cache@v4
         with:
-          path: ~/.conan2/p
-          key: conan2-${{ github.event.inputs.runner }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/try-build.yml') }}
+          path: ${{ env.CONAN_HOME }}/p
+          key: try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.settings_mode }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/try-build.yml') }}
           restore-keys: |
-            conan2-${{ github.event.inputs.runner }}-
+            try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.settings_mode }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-
 
       - name: Try build
         env:

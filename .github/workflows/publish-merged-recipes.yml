@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
   actions: write
 
 jobs:
@@ -42,6 +43,9 @@ jobs:
       - name: Detect recipe versions to publish
         id: detect
         env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           TARGETS_FILE: ${{ runner.temp }}/recipe-targets.tsv
         run: |
