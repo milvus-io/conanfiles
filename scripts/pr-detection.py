@@ -238,10 +238,14 @@ def detect_recipe_file_changes(changed_recipe_files):
         folder = parts[2]
         folder_key = (package, folder)
 
+        if path.name == "config.yml":
+            continue
+
         if path.name == "conandata.yml":
             for version in sorted(changed_conandata_versions(changed_path), key=version_sort_key):
                 if version in versions_for(package):
                     add_target(package, version, pr_number_reason(changed_path))
+            continue
 
         if folder_key not in seen_affected_folders:
             seen_affected_folders.add(folder_key)
