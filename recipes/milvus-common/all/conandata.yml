@@ -1,28 +1,7 @@
 sources:
-  "1.0.0-rc1":
-    url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-rc1.tar.gz"
-    sha256: "a1e9be7c0c5fb6660837b975481d3bd3f5984952f707d75fb2efadd32535faab"
   "1.0.0-45bff01":
     url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-45bff01.tar.gz"
     sha256: "c9cda97ec5bea80ca4a850a5458e8719efed555baf36481c4786758ffa77b2a1"
-  "1.0.0-242deda":
-    url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-242deda.tar.gz"
-    sha256: "c697662f22f99ba40d507fd51e8d66dca7bde36eba19a1998bacd6b25e12d64e"
-  "1.0.0-6476f50":
-    url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-6476f50.tar.gz"
-    sha256: "b0d5b42c8aec53c5198ace3eec94a1b153fd0940bcdf8a6c23c20bc3a80af3e5"
-  "1.0.0-1929351":
-    url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-1929351.tar.gz"
-    sha256: "6fe113d83113dd5f343a78b715229e8ff30d548717ee8b5838389ab7c88e9df6"
-  "1.0.0-cae855a":
-    url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-cae855a.tar.gz"
-    sha256: "3ef4058d81bb9d861c0b05e4a864f774f9ed2e17fa818cb788dd95bbc19982b2"
-  "1.0.0-ac18852":
-    url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-ac18852.tar.gz"
-    sha256: "579088b204102b6cc75240affe75524e8f60ab323302d35d44fdce5bb42acbdf"
-  "1.0.0-9ca5ea6":
-    url: "https://github.com/zilliztech/milvus-common/archive/9ca5ea66ebed5d7cb722412bffa1588ba8f0b64d.tar.gz"
-    sha256: "2c110c4c665c3857976ca8184cbca373e9053bd6f294853942c7a9b8c7a5d3ec"
   "1.0.0-860f9a7":
     url: "https://github.com/zilliztech/milvus-common/archive/860f9a74ec61e0fa413612b4bb5a5e2a6b92759a.tar.gz"
     sha256: "b423f1376a5481c4d9ab45f2a1b90302c2358589ab62d1a167f63e244a1639e0"
