@@ -1,6 +1,4 @@
 versions:
-  "12.1.0-test":
-    folder: all
   "12.1.0":
     folder: all
   "12.0.0":
