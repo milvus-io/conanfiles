@@ -8,7 +8,7 @@ class MilvusSdkCppConan(ConanFile):
     name = "milvus-sdk-cpp"
     license = "Apache-2.0"
     url = "https://github.com/milvus-io/milvus-sdk-cpp"
-    description = "Milvus C++ SDK"
+    description = "A Milvus C++ SDK"
 
     settings = "os", "arch", "compiler", "build_type"
     options = {
