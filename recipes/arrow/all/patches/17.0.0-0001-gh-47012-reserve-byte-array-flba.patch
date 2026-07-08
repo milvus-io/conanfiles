@@ -1,0 +1,39 @@
+diff --git a/cpp/src/parquet/column_reader.cc b/cpp/src/parquet/column_reader.cc
+index ebf9515f2760..d95ae9dff9 100644
+--- a/cpp/src/parquet/column_reader.cc
++++ b/cpp/src/parquet/column_reader.cc
+@@ -1791,7 +1791,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
+     }
+   }
+ 
+-  void ReserveValues(int64_t extra_values) {
++  virtual void ReserveValues(int64_t extra_values) {
+     const int64_t new_values_capacity =
+         UpdateCapacity(values_capacity_, values_written_, extra_values);
+     if (new_values_capacity > values_capacity_) {
+@@ -2075,6 +2075,13 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
+     return ::arrow::ArrayVector({std::move(chunk)});
+   }
+ 
++  void ReserveValues(int64_t extra_values) override {
++    TypedRecordReader::ReserveValues(extra_values);
++    PARQUET_THROW_NOT_OK(null_bitmap_builder_.Reserve(extra_values));
++    PARQUET_THROW_NOT_OK(
++        data_builder_.Reserve(extra_values * static_cast<int64_t>(byte_width_)));
++  }
++
+   void ReadValuesDense(int64_t values_to_read) override {
+     auto values = ValuesHead<FLBA>();
+     int64_t num_decoded =
+@@ -2156,6 +2163,11 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
+     return result;
+   }
+ 
++  void ReserveValues(int64_t extra_values) override {
++    TypedRecordReader::ReserveValues(extra_values);
++    PARQUET_THROW_NOT_OK(accumulator_.builder->Reserve(extra_values));
++  }
++
+   void ReadValuesDense(int64_t values_to_read) override {
+     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
+         static_cast<int>(values_to_read), &accumulator_);
