@@ -1,0 +1,51 @@
+diff --git a/cpp/src/parquet/encoding.cc b/cpp/src/parquet/encoding.cc
+index 54e1e000040a..1c69c4e217 100644
+--- a/cpp/src/parquet/encoding.cc
++++ b/cpp/src/parquet/encoding.cc
+@@ -1510,31 +1510,39 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
+   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
+                           int64_t valid_bits_offset,
+                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
+                           int* out_values_decoded) {
++    // We're going to decode up to `num_values - null_count` PLAIN values,
++    // and each value has a 4-byte length header that doesn't count for the
++    // Arrow binary data length.
++    int64_t estimated_data_length =
++        std::max<int64_t>(0, len_ - 4 * (num_values - null_count));
++
+     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
+     int values_decoded = 0;
+ 
+-    RETURN_NOT_OK(helper.Prepare(len_));
++    RETURN_NOT_OK(helper.Prepare(estimated_data_length));
+ 
+     int i = 0;
+     RETURN_NOT_OK(VisitNullBitmapInline(
+         valid_bits, valid_bits_offset, num_values, null_count,
+         [&]() {
+           if (ARROW_PREDICT_FALSE(len_ < 4)) {
+             ParquetException::EofException();
+           }
+           auto value_len = SafeLoadAs<int32_t>(data_);
+           if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
+             return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
+           }
+           auto increment = value_len + 4;
+           if (ARROW_PREDICT_FALSE(len_ < increment)) {
+             ParquetException::EofException();
+           }
+-          RETURN_NOT_OK(helper.PrepareNextInput(value_len, len_));
++          RETURN_NOT_OK(helper.PrepareNextInput(value_len, estimated_data_length));
+           helper.UnsafeAppend(data_ + 4, value_len);
+           data_ += increment;
+           len_ -= increment;
++          estimated_data_length -= value_len;
++          DCHECK_GE(estimated_data_length, 0);
+           ++values_decoded;
+           ++i;
+           return Status::OK();
+         },
+         [&]() {
+           helper.UnsafeAppendNull();
+           ++i;
+           return Status::OK();

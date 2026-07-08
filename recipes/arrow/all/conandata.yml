@@ -48,6 +48,15 @@ sources:
     url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-7.0.0/apache-arrow-7.0.0.tar.gz?action=download"
     sha256: "e8f49b149a15ecef4e40fcfab1b87c113c6b1ee186005c169e5cdf95d31a99de"
 patches:
+  "17.0.0":
+    - patch_file: "patches/17.0.0-0001-gh-47012-reserve-byte-array-flba.patch"
+      patch_description: "Backport GH-47012 reserve BYTE_ARRAY and FLBA readers correctly"
+      patch_type: "backport"
+      patch_source: "https://github.com/apache/arrow/pull/47013"
+    - patch_file: "patches/17.0.0-0002-gh-48112-plain-byte-array-estimate.patch"
+      patch_description: "Backport GH-48112 improve PLAIN BYTE_ARRAY data length estimate"
+      patch_type: "backport"
+      patch_source: "https://github.com/apache/arrow/pull/48113"
   "8.0.1":
     - patch_file: "patches/8.0.0-0005-install-utils.patch"
       patch_description: "enable utils installation"
