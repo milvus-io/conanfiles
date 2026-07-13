@@ -16,7 +16,7 @@ class MilvusSdkCppConan(ConanFile):
         "fPIC": [True, False],
     }
     default_options = {
-        "shared": False,
+        "shared": True,
         "fPIC": True,
         "grpc/*:shared": False,
         "protobuf/*:shared": False,
@@ -67,3 +67,5 @@ class MilvusSdkCppConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = ["milvus_sdk"]
+        self.cpp_info.set_property("cmake_file_name", "milvus_sdk")
+        self.cpp_info.set_property("cmake_target_name", "milvus_sdk::milvus_sdk")
