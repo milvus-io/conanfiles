@@ -10,6 +10,8 @@ class MilvusSdkCppConan(ConanFile):
     url = "https://github.com/milvus-io/milvus-sdk-cpp"
     description = "Milvus C++ SDK"
 
+    _legacy_nlohmann_versions = {"2.6.2", "2.6.3", "2.6.4", "3.0.0"}
+
     settings = "os", "arch", "compiler", "build_type"
     options = {
         "shared": [True, False],
@@ -38,7 +40,12 @@ class MilvusSdkCppConan(ConanFile):
         self.requires("grpc/1.65.0")
         self.requires("protobuf/5.27.0")
         self.requires("abseil/20240116.2")
-        self.requires("nlohmann_json/3.11.3")
+
+        # These releases still call find_package(nlohmann_json) during
+        # configuration. Newer releases use the SDK's namespaced vendored
+        # headers and intentionally avoid a Conan nlohmann_json dependency.
+        if str(self.version) in self._legacy_nlohmann_versions:
+            self.requires("nlohmann_json/3.11.3")
 
     def layout(self):
         cmake_layout(self, src_folder="src")
@@ -66,6 +73,22 @@ class MilvusSdkCppConan(ConanFile):
         cmake.install()
 
     def package_info(self):
-        self.cpp_info.libs = ["milvus_sdk"]
         self.cpp_info.set_property("cmake_file_name", "milvus_sdk")
         self.cpp_info.set_property("cmake_target_name", "milvus_sdk::milvus_sdk")
+        self.cpp_info.libs = ["milvus_sdk"]
+        self.cpp_info.system_libs = ["dl"] if str(self.settings.os) == "Linux" else []
+        self.cpp_info.builddirs = ["lib/cmake/milvus_sdk"]
+        self.cpp_info.set_property("pkg_config_name", "milvus-sdk-cpp")
+
+        self.cpp_info.includedirs = ["include"]
+        self.cpp_info.libdirs = ["lib"]
+        self.cpp_info.bindirs = ["bin"]
+
+        if not self.options.shared:
+            self.cpp_info.requires = [
+                "protobuf::libprotobuf",
+                "grpc::grpc++",
+                "abseil::absl_base",
+            ]
+            if str(self.version) in self._legacy_nlohmann_versions:
+                self.cpp_info.requires.append("nlohmann_json::nlohmann_json")
