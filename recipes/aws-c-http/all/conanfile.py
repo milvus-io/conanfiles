@@ -40,7 +40,11 @@ class AwsCHttp(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) >= "0.10.5":
+        if Version(self.version) >= "0.11.0":
+            self.requires("aws-c-compression/0.3.2")
+            self.requires("aws-c-common/0.14.0", transitive_headers=True, transitive_libs=True)
+            self.requires("aws-c-cal/0.9.14")
+        elif Version(self.version) >= "0.10.5":
             self.requires("aws-c-compression/0.3.1")
             self.requires("aws-c-common/0.12.5", transitive_headers=True, transitive_libs=True)
             self.requires("aws-c-cal/0.9.8")
@@ -51,7 +55,9 @@ class AwsCHttp(ConanFile):
             self.requires("aws-c-compression/0.2.17")
             self.requires("aws-c-common/0.9.6", transitive_headers=True, transitive_libs=True)
 
-        if Version(self.version) >= "0.10.5":
+        if Version(self.version) >= "0.11.0":
+            self.requires("aws-c-io/0.27.0", transitive_headers=True, transitive_libs=True)
+        elif Version(self.version) >= "0.10.5":
             self.requires("aws-c-io/0.23.2", transitive_headers=True, transitive_libs=True)
         elif Version(self.version) <= "0.6.13":
             self.requires("aws-c-io/0.10.20", transitive_headers=True, transitive_libs=True)
