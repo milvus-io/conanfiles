@@ -305,7 +305,6 @@ class AwsSdkCppConan(ConanFile):
     default_options["queues"] = True
     default_options["s3-encryption"] = True
     default_options["transfer"] = True
-    default_options["text-to-speech"] = True
 
     short_paths = True
 
