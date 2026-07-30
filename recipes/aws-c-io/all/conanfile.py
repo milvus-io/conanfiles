@@ -42,7 +42,10 @@ class AwsCIO(ConanFile):
     def requirements(self):
         # the versions of aws-c-common and aws-c-io are tied since aws-c-common/0.6.12 and aws-c-io/0.10.10
         # Please refer https://github.com/conan-io/conan-center-index/issues/7763
-        if Version(self.version) >= "0.23.2":
+        if Version(self.version) >= "0.27.0":
+            self.requires("aws-c-common/0.14.0", transitive_headers=True, transitive_libs=True)
+            self.requires("aws-c-cal/0.9.14", transitive_headers=True, transitive_libs=True)
+        elif Version(self.version) >= "0.23.2":
             self.requires("aws-c-common/0.12.5", transitive_headers=True, transitive_libs=True)
             self.requires("aws-c-cal/0.9.8", transitive_headers=True, transitive_libs=True)
         elif Version(self.version) <= "0.13.4":
@@ -52,7 +55,10 @@ class AwsCIO(ConanFile):
             self.requires("aws-c-common/0.9.6", transitive_headers=True, transitive_libs=True)
             self.requires("aws-c-cal/0.6.9", transitive_headers=True, transitive_libs=True)
 
-        if self.settings.os in ["Linux", "FreeBSD", "Android"]:
+        if Version(self.version) >= "0.27.0":
+            if self.settings.os in ["Linux", "FreeBSD", "Android", "Macos"]:
+                self.requires("s2n/1.7.4")
+        elif self.settings.os in ["Linux", "FreeBSD", "Android"]:
             if Version(self.version) >= "0.23.2":
                 self.requires("s2n/1.6.0")
             else:

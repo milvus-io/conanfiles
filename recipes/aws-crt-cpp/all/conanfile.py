@@ -48,7 +48,18 @@ class AwsCrtCpp(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) >= "0.35":
+        if Version(self.version) >= "0.40.1":
+            self.requires("aws-c-cal/0.9.14", transitive_headers=True)
+            self.requires("aws-c-common/0.14.0", transitive_headers=True)
+            self.requires("aws-checksums/0.2.10")
+            self.requires("aws-c-auth/0.10.3", transitive_headers=True)
+            self.requires("aws-c-event-stream/0.7.1")
+            self.requires("aws-c-http/0.11.0", transitive_headers=True)
+            self.requires("aws-c-io/0.27.0", transitive_headers=True)
+            self.requires("aws-c-mqtt/0.16.0", transitive_headers=True)
+            self.requires("aws-c-s3/0.12.6")
+            self.requires("aws-c-sdkutils/0.2.5")
+        elif Version(self.version) >= "0.35":
             self.requires("aws-c-cal/0.9.8", transitive_headers=True)
             self.requires("aws-c-common/0.12.5", transitive_headers=True)
             self.requires("aws-checksums/0.2.6")

@@ -305,7 +305,6 @@ class AwsSdkCppConan(ConanFile):
     default_options["queues"] = True
     default_options["s3-encryption"] = True
     default_options["transfer"] = True
-    default_options["text-to-speech"] = True
 
     short_paths = True
 
@@ -341,7 +340,21 @@ class AwsSdkCppConan(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) >= "1.11":
+        if Version(self.version) >= "1.11.842":
+            self.requires("aws-c-common/0.14.0")
+            self.requires("aws-c-event-stream/0.7.1")
+            self.requires("aws-checksums/0.2.10")
+            self.requires("aws-c-cal/0.9.14")
+            self.requires("aws-c-http/0.11.0")
+            self.requires("aws-c-io/0.27.0")
+            self.requires("aws-c-auth/0.10.3")
+            self.requires("aws-c-compression/0.3.2")
+            self.requires("aws-c-mqtt/0.16.0")
+            self.requires("aws-c-sdkutils/0.2.5")
+            self.requires("aws-crt-cpp/0.40.1", transitive_headers=True)
+            if self.options.get_safe("s3-crt"):
+                self.requires("aws-c-s3/0.12.6")
+        elif Version(self.version) >= "1.11":
             self.requires("aws-c-common/0.12.5")
             self.requires("aws-c-event-stream/0.5.7")
             self.requires("aws-checksums/0.2.6")
