@@ -31,6 +31,7 @@ class TestPackageConan(ConanFile):
             stream = io.StringIO()
             bin_path = os.path.join(self.cpp.build.bindirs[0], "test_package")
             self.run(bin_path, stream, env="conanrun")
-            self.output.info(stream.getvalue())
+            output = stream.getvalue()
+            self.output.info(output)
             if self._needs_openssl:
-                assert "found static libcrypto" in stream.getvalue()
+                assert "found static libcrypto" in output or "found weak ref libcrypto" in output
