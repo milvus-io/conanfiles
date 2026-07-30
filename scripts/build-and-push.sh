@@ -200,7 +200,7 @@ for ver, info in (data.get('versions') or {}).items():
 " | while read -r ver folder; do
         recipe="$pkg_dir/$folder/conanfile.py"
         if [ -f "$recipe" ]; then
-            conan export "$recipe" "$pkg_name/$ver@" 2>/dev/null || true
+            conan export "$recipe" --name="$pkg_name" --version="$ver"
         fi
     done
 done
