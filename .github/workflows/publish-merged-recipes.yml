@@ -28,8 +28,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
+
+      - name: Check out trusted merge commit
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          if [[ ! "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid merge commit SHA: '$MERGE_SHA'" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$MERGE_SHA" HEAD; then
+            echo "Merge commit '$MERGE_SHA' is not part of the trusted base branch" >&2
+            exit 1
+          fi
+          git checkout --detach "$MERGE_SHA"
 
       - uses: actions/setup-python@v5
         with:
