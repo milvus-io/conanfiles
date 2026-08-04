@@ -74,6 +74,7 @@ class OpenblasConan(ConanFile):
         "build_lapack": [True, False],
         "build_relapack": [True, False],
         "use_thread": [True, False],
+        "use_openmp": [True, False],
         "use_locking": [True, False],
         "dynamic_arch": [True, False],
         "target": [None] + available_openblas_targets
@@ -84,6 +85,7 @@ class OpenblasConan(ConanFile):
         "build_lapack": True,
         "build_relapack": False,
         "use_thread": True,
+        "use_openmp": False,
         "use_locking": True,
         "dynamic_arch": False,
         "target": None,
@@ -92,6 +94,7 @@ class OpenblasConan(ConanFile):
         "build_lapack": "Build LAPACK and LAPACKE",
         "build_relapack": "Build with ReLAPACK (recursive implementation of several LAPACK functions on top of standard LAPACK)",
         "use_thread": "Enable threads support",
+        "use_openmp": "Use OpenMP instead of the native threading backend",
         "use_locking": "Use locks even in single-threaded builds to make them callable from multiple threads",
         "dynamic_arch": "Include support for multiple CPU targets, with automatic selection at runtime (x86/x86_64, aarch64 or ppc only)",
         "target": "OpenBLAS TARGET variable (see TargetList.txt)",
@@ -136,6 +139,11 @@ class OpenblasConan(ConanFile):
             # This was fixed in https://github.com/OpenMathLib/OpenBLAS/pull/4142, which was introduced in 0.3.24.
             # This would be a reasonably trivial hotfix to backport.
             raise ConanInvalidConfiguration("armv8 builds are not currently supported for versions lower than 0.3.24. Contributions to support this are welcome.")
+
+        if self.options.use_openmp and not self.options.use_thread:
+            raise ConanInvalidConfiguration(f'"{self.name}/*:use_openmp=True" option requires "{self.name}/*:use_thread=True"')
+        if self.options.use_openmp and self.settings.compiler not in ["gcc", "clang", "apple-clang"]:
+            raise ConanInvalidConfiguration(f'"{self.name}/*:use_openmp=True" option is only supported for GCC, Clang and Apple Clang')
 
         if self.options.build_relapack:
             if not self.options.build_lapack:
@@ -182,6 +190,7 @@ class OpenblasConan(ConanFile):
 
         tc.variables["DYNAMIC_ARCH"] = self.options.dynamic_arch
         tc.variables["USE_THREAD"] = self.options.use_thread
+        tc.variables["USE_OPENMP"] = self.options.use_openmp
         tc.variables["USE_LOCKING"] = self.options.use_locking
 
         tc.variables["MSVC_STATIC_CRT"] = is_msvc_static_runtime(self)
@@ -257,19 +266,24 @@ class OpenblasConan(ConanFile):
         # CMake config file:
         # - OpenBLAS always has one and only one of these components: openmp, pthread or serial.
         # - Whatever if this component is requested or not, official CMake imported target is always OpenBLAS::OpenBLAS
-        # - TODO: add openmp component when implemented in this recipe
         self.cpp_info.set_property("cmake_file_name", "OpenBLAS")
         self.cpp_info.set_property("cmake_target_name", "OpenBLAS::OpenBLAS")
         self.cpp_info.set_property("pkg_config_name", "openblas")
         # 'pthread' causes issues without namespace
-        cmake_component_name = "pthread" if self.options.use_thread else "serial"  # TODO: how to model this in CMakeDeps?
+        if self.options.use_openmp:
+            cmake_component_name = "openmp"
+        else:
+            cmake_component_name = "pthread" if self.options.use_thread else "serial"
         self.cpp_info.components["openblas_component"].set_property("cmake_target_name", f"OpenBLAS::{cmake_component_name}")
         self.cpp_info.components["openblas_component"].set_property("pkg_config_name", "openblas")
         self.cpp_info.components["openblas_component"].includedirs.append(os.path.join("include", "openblas"))
         self.cpp_info.components["openblas_component"].libs = [self._lib_name]
+        if self.options.use_openmp:
+            openmp_runtime = "gomp" if self.settings.compiler == "gcc" else "omp"
+            self.cpp_info.components["openblas_component"].system_libs.append(openmp_runtime)
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.components["openblas_component"].system_libs.append("m")
-            if self.options.use_thread:
+            if self.options.use_thread and not self.options.use_openmp:
                 self.cpp_info.components["openblas_component"].system_libs.append("pthread")
             if self.options.build_lapack and self._fortran_compiler:
                 self.cpp_info.components["openblas_component"].system_libs.append("gfortran")
