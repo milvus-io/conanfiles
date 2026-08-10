@@ -37,9 +37,9 @@ class MilvusSdkCppConan(ConanFile):
         check_min_cppstd(self, 14)
 
     def requirements(self):
-        self.requires("grpc/1.65.0")
-        self.requires("protobuf/5.27.0")
-        self.requires("abseil/20240116.2")
+        self.requires("grpc/1.65.0#38c2f71c0dcad882681a571439b2a21a")
+        self.requires("protobuf/5.27.0#99c5d5f87d1eea580a2234238020821b")
+        self.requires("abseil/20240116.2#f223c3320ef9e6feee1d904ae925197d")
 
         # These releases still call find_package(nlohmann_json) during
         # configuration. Newer releases use the SDK's namespaced vendored
