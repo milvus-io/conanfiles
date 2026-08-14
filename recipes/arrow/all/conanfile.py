@@ -190,7 +190,7 @@ class ArrowConan(ConanFile):
         if self.options.get_safe("with_opentelemetry"):
             self.requires("opentelemetry-cpp/1.7.0")
         if self.options.with_s3:
-            self.requires("aws-sdk-cpp/1.11.692@milvus/dev")
+            self.requires("aws-sdk-cpp/1.11.842@milvus/dev")
         if self.options.with_brotli:
             self.requires("brotli/1.1.0")
         if self.options.with_bz2:
@@ -215,7 +215,7 @@ class ArrowConan(ConanFile):
         if self.options.with_orc:
             self.requires("orc/2.0.0")
         if self.options.with_azure:
-            self.requires("azure-sdk-for-cpp/1.16.0@milvus/dev")
+            self.requires("azure-sdk-for-cpp/1.16.4@milvus/dev")
 
     def validate(self):
         # Do not allow options with 'auto' value
@@ -640,4 +640,3 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow"].requires.append("grpc::grpc")
         if self.options.with_flight_rpc:
             self.cpp_info.components["libarrow_flight"].requires.append("protobuf::protobuf")
-
