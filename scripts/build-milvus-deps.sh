@@ -21,24 +21,26 @@ set -e
 # Each `conan create` builds independently, so multiple versions coexist.
 #
 #
-# Recipes built by this script (56 packages):
-#   zlib/1.3.1, bzip2/1.0.8, lz4/1.9.4, snappy/1.2.1, zstd/1.5.5,
+# Recipes built by this script (58 packages):
+#   zlib/1.3.1, bzip2/1.0.8, lz4/1.10.0, snappy/1.2.1, zstd/1.5.5,
 #   gflags/2.2.2, double-conversion/3.3.0, crc32c/1.1.2,
-#   nlohmann_json/3.11.3, rapidjson/cci.20230929, xsimd/9.0.1, fmt/11.0.2,
+#   nlohmann_json/3.11.3, rapidjson/cci.20230929, xsimd/9.0.1, fmt/11.2.0,
 #   yaml-cpp/0.7.0, marisa/0.2.6, geos/3.12.0, roaring/3.0.0, xxhash/0.8.3, gtest/1.13.0,
 #   ninja/1.11.1, m4/1.4.19, cmake/3.31.11, opentelemetry-proto/1.7.0,
+#   libbson/1.30.6@milvus/dev,
 #   xz_utils/5.4.5, c-ares/1.19.1, abseil/20250127.0,
 #   protobuf/5.27.0@milvus/dev, libunwind/1.8.1, s2n/1.6.0, libevent/2.1.12,
-#   libsodium/cci.20220430, re2/20230301, glog/0.7.1, benchmark/1.7.0,
+#   libsodium/1.0.19, re2/20230301, glog/0.7.1, benchmark/1.7.0,
 #   flex/2.6.4, autoconf/2.71, libiberty/9.1.0,
 #   automake/1.16.5, meson/1.2.2, boost/1.83.0, onetbb/2021.9.0,
 #   jemalloc/5.3.0, googleapis/cci.20221108, libdwarf/20191104,
 #   libtool/2.4.7, bison/3.8.2, grpc/1.67.1@milvus/dev, librdkafka/1.9.1,
-#   thrift/0.17.0, azure-sdk-for-cpp/1.11.3@milvus/dev,
-#   aws-sdk-cpp/1.11.692@milvus/dev,
-#   opentelemetry-cpp/1.23.0@milvus/dev, folly/2024.08.12.00@milvus/dev,
+#   thrift/0.17.0, azure-sdk-for-cpp/1.16.4@milvus/dev,
+#   aws-sdk-cpp/1.11.842@milvus/dev,
+#   opentelemetry-cpp/1.23.0@milvus/dev, folly/2026.04.20.00@milvus/dev,
 #   google-cloud-cpp/2.28.0@milvus/dev, rocksdb/6.29.5@milvus/dev,
-#   libavrocpp/1.12.1.1@milvus/dev, arrow/17.0.0@milvus/dev-2.6
+#   libavrocpp/1.12.1.1@milvus/dev, arrow/17.0.0@milvus/dev,
+#   milvus-common/1.0.0-b589c5a@milvus/dev
 #
 # Installed from conancenter (not from this repo's recipes):
 #   - openssl/3.3.2
@@ -204,7 +206,7 @@ echo "=============================================="
 # Compression libraries (Milvus version)
 build_package "recipes/zlib/all/conanfile.py" "1.3.1"
 build_package "recipes/bzip2/all/conanfile.py" "1.0.8"
-build_package "recipes/lz4/all/conanfile.py" "1.9.4"
+build_package "recipes/lz4/all/conanfile.py" "1.10.0"
 build_package "recipes/snappy/all/conanfile.py" "1.2.1"
 build_package "recipes/zstd/all/conanfile.py" "1.5.5"
 
@@ -213,11 +215,14 @@ build_package "recipes/gflags/all/conanfile.py" "2.2.2" "-o gflags/*:shared=True
 build_package "recipes/double-conversion/all/conanfile.py" "3.3.0" "-o double-conversion/*:shared=True"
 build_package "recipes/crc32c/all/conanfile.py" "1.1.2"
 
+# libbson (BSON C library only, direct Milvus dep for JSON stats; not the full mongo-c-driver)
+build_package "recipes/libbson/all/conanfile.py" "1.30.6" "" "milvus/dev"
+
 # Header-only / Simple packages (Milvus versions)
 build_package "recipes/nlohmann_json/all/conanfile.py" "3.11.3"
 build_package "recipes/rapidjson/all/conanfile.py" "cci.20230929"
 build_package "recipes/xsimd/all/conanfile.py" "9.0.1"
-build_package "recipes/fmt/all/conanfile.py" "11.0.2" "-o fmt/*:header_only=False"
+build_package "recipes/fmt/all/conanfile.py" "11.2.0" "-o fmt/*:header_only=False"
 build_package "recipes/yaml-cpp/all/conanfile.py" "0.7.0"
 build_package "recipes/marisa/all/conanfile.py" "0.2.6"
 build_package "recipes/geos/all/conanfile.py" "3.12.0"
@@ -265,7 +270,7 @@ build_package "recipes/s2n/all/conanfile.py" "1.6.0"
 build_package "recipes/libevent/all/conanfile.py" "2.1.12" "-o libevent/*:shared=True"
 
 # libsodium (Milvus version, also used by folly)
-build_package "recipes/libsodium/all/conanfile.py" "cci.20220430"
+build_package "recipes/libsodium/all/conanfile.py" "1.0.19"
 
 # re2 (minimal deps for this version)
 build_package "recipes/re2/all/conanfile.py" "20230301"
@@ -345,7 +350,7 @@ echo "=============================================="
 build_package "recipes/thrift/all/conanfile.py" "0.17.0"
 
 # azure-sdk-for-cpp depends on openssl, libcurl, libxml2
-build_package "recipes/azure-sdk-for-cpp/all/conanfile.py" "1.11.3" "" "milvus/dev"
+build_package "recipes/azure-sdk-for-cpp/all/conanfile.py" "1.16.4" "" "milvus/dev"
 
 # ============================================================================
 # PHASE 6: AWS SDK (Level 5-6)
@@ -356,7 +361,7 @@ echo "PHASE 6: AWS SDK chain (Level 5-6)"
 echo "=============================================="
 
 # aws-sdk-cpp (uses CCI 0.12.5-based aws-c-* chain, built as --build=missing)
-build_package "recipes/aws-sdk-cpp/all/conanfile.py" "1.11.692" \
+build_package "recipes/aws-sdk-cpp/all/conanfile.py" "1.11.842" \
     "-o aws-sdk-cpp/*:config=True -o aws-sdk-cpp/*:s3-crt=True -o aws-sdk-cpp/*:text-to-speech=False -o aws-sdk-cpp/*:transfer=False" \
     "milvus/dev"
 
@@ -376,7 +381,12 @@ build_package_no_test "recipes/opentelemetry-cpp/all/conanfile.py" "1.23.0" \
 # folly depends on boost, bzip2, double-conversion, gflags, glog, libevent,
 #   openssl, lz4, snappy, zlib, zstd, libsodium, xz_utils, libunwind, fmt,
 #   libiberty, libdwarf
-build_package_no_test "recipes/folly/v2024/conanfile.py" "2024.08.12.00" "-o folly/*:shared=True" "milvus/dev"
+build_package_no_test "recipes/folly/v2026/conanfile.py" "2026.04.20.00" "-o folly/*:shared=True" "milvus/dev"
+
+# milvus-common depends on glog, prometheus-cpp, gflags, opentelemetry-cpp,
+#   grpc, abseil, xz_utils, zlib, libevent, folly, boost, protobuf, lz4,
+#   openssl, libcurl, fmt, nlohmann_json, libunwind, openblas
+build_package "recipes/milvus-common/all/conanfile.py" "1.0.0-b589c5a" "" "milvus/dev"
 
 # google-cloud-cpp depends on abseil, nlohmann_json, crc32c, libcurl, openssl, zlib
 # (storage-only build, no grpc/protobuf needed)
@@ -418,7 +428,7 @@ build_package "recipes/arrow/all/conanfile.py" "17.0.0" \
      -o aws-sdk-cpp/*:config=True \
      -o aws-sdk-cpp/*:text-to-speech=False \
      -o aws-sdk-cpp/*:transfer=False \
-     -o aws-sdk-cpp/*:s3-crt=True" "milvus/dev-2.6"
+     -o aws-sdk-cpp/*:s3-crt=True" "milvus/dev"
 
 # ============================================================================
 # Step 3: Summary

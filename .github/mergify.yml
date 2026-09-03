@@ -44,8 +44,21 @@ pull_request_rules:
     conditions:
       - base=master
       - 'files~=^(recipes/|scripts/(build-and-push\.sh|pr-detection\.py)$|\.github/workflows/pr-verify-recipes\.yml$)'
-      - '-check-success=verify recipe versions'
+      - or:
+          - check-pending=verify recipe versions
+          - check-failure=verify recipe versions
     actions:
       label:
         remove:
           - ci-passed
+
+  - name: Auto-queue when all review labels present
+    conditions:
+      - base=master
+      - and:
+          - label=approved
+          - label=dco-passed
+          - label=ci-passed
+          - label=lgtm
+    actions:
+      queue:

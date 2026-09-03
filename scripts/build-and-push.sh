@@ -309,6 +309,15 @@ for repo in data.values():
 " 2>/dev/null)
 
     if [ -n "$RECIPE_REV" ]; then
+        # Print the new revision prominently so it can be found in the job log
+        echo ""
+        echo "NEW RECIPE REVISION: ${PKG_REF}#${RECIPE_REV}"
+        echo ""
+        # Surface the revision on the Actions run summary page (CI only)
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            echo "Published recipe revision: \`${PKG_REF}#${RECIPE_REV}\`" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
         TARGET_REV="${PKG_REF}#${RECIPE_REV}"
         TARGET_WAS_UPLOADED=false
 
