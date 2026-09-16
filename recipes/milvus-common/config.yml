@@ -1,4 +1,6 @@
 versions:
+  "1.0.0-fe62001":
+    folder: all
   "1.0.0-7d67e14":
     folder: all
   "1.0.0-b589c5a":
