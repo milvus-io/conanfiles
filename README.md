@@ -100,6 +100,7 @@ When triggering the workflow from the GitHub Actions page (**Run workflow** butt
 | `repository` | No | Target Artifactory repository: `production` or `testing` (default: `production`) |
 | `user_channel` | No | User/channel for the package (e.g. `milvus/dev`) |
 | `extra_options` | No | Extra conan options (e.g. `-o pkg:opt=val -c conf=val`) |
+| `upload_binaries` | No | Also upload the target package's binary packages: `yes`/`no` (default `no`) |
 
 **Job: `build-and-push`**
 

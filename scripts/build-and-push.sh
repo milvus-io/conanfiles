@@ -293,6 +293,8 @@ for repo in data.values():
     echo "$UPLOAD_OUTPUT"
 
     # With --upload-binaries, additionally upload the target package's binaries.
+    # Keep this output separate from UPLOAD_OUTPUT so the Step 6 recipe-revision
+    # decision is based only on the recipe-only upload above.
     if [ "$DO_UPLOAD_BINARIES" = true ]; then
         echo ""
         echo "Uploading binary packages for $PKG_REF ..."
@@ -301,7 +303,6 @@ for repo in data.values():
             exit 1
         fi
         echo "$BINARY_UPLOAD_OUTPUT"
-        UPLOAD_OUTPUT="${UPLOAD_OUTPUT}"$'\n'"${BINARY_UPLOAD_OUTPUT}"
     fi
 
     # ========================================================================
@@ -383,7 +384,11 @@ for repo in data.values():
 
     echo ""
     echo "=============================================="
-    echo "Upload complete: $PKG_REF and dependencies (recipe-only)"
+    if [ "$DO_UPLOAD_BINARIES" = true ]; then
+        echo "Upload complete: $PKG_REF and dependencies (recipe-only) + $PKG_REF binaries"
+    else
+        echo "Upload complete: $PKG_REF and dependencies (recipe-only)"
+    fi
     echo "=============================================="
 else
     echo ""
