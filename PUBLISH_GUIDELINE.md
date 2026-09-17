@@ -335,7 +335,7 @@ export CMAKE_POLICY_VERSION_MINIMUM=3.5    # only needed for CMake 4.x
 ./scripts/build-and-push.sh mylib 1.2.3 --user-channel milvus/dev --repository production
 ```
 
-The script uploads recipe-only (no pre-built binaries). Consumers build from source with their own profile.
+By default the script uploads recipe-only (no pre-built binaries). Consumers build from source with their own profile. Pass `--upload-binaries` to also upload the target package's binaries (dependencies remain recipe-only); if the dependency binaries are not already present in the remote, consumers will rebuild those dependencies from source.
 
 ## Troubleshooting
 

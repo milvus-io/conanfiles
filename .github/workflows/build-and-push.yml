@@ -36,6 +36,15 @@ on:
         description: 'extra conan options (e.g. -o pkg:opt=val -c conf=val)'
         required: false
         default: ''
+
+      upload_binaries:
+        description: 'also upload binary packages built in this run (yes/no)'
+        required: false
+        type: choice
+        options:
+          - 'no'
+          - 'yes'
+        default: 'no'
 jobs:
   build-and-push:
     runs-on: ubuntu-22.04
@@ -92,6 +101,7 @@ jobs:
           INPUT_REPOSITORY: ${{ github.event.inputs.repository }}
           INPUT_USER_CHANNEL: ${{ github.event.inputs.user_channel }}
           INPUT_EXTRA_OPTIONS: ${{ github.event.inputs.extra_options }}
+          INPUT_UPLOAD_BINARIES: ${{ github.event.inputs.upload_binaries }}
         run: |
           ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --repository "$INPUT_REPOSITORY")
           if [ -n "$INPUT_USER_CHANNEL" ]; then
@@ -99,5 +109,8 @@ jobs:
           fi
           if [ -n "$INPUT_EXTRA_OPTIONS" ]; then
             ARGS+=(--extra-options "$INPUT_EXTRA_OPTIONS")
+          fi
+          if [ "$INPUT_UPLOAD_BINARIES" = "yes" ]; then
+            ARGS+=(--upload-binaries)
           fi
           ./scripts/build-and-push.sh "${ARGS[@]}"

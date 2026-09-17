@@ -100,6 +100,7 @@ When triggering the workflow from the GitHub Actions page (**Run workflow** butt
 | `repository` | No | Target Artifactory repository: `production` or `testing` (default: `production`) |
 | `user_channel` | No | User/channel for the package (e.g. `milvus/dev`) |
 | `extra_options` | No | Extra conan options (e.g. `-o pkg:opt=val -c conf=val`) |
+| `upload_binaries` | No | Also upload the target package's binary packages: `yes`/`no` (default `no`) |
 
 **Job: `build-and-push`**
 
@@ -195,6 +196,7 @@ Builds a single Conan package from this repo's recipes and uploads the recipe an
 | `--settings-mode <mode>` | Conan settings mode: `linux-gcc-11` or `runner-default` (default: `linux-gcc-11`) |
 | `--repository <repo>` | Target Artifactory repository: `production` or `testing` (default: `production`) |
 | `--no-upload` | Build only, skip uploading to Artifactory |
+| `--upload-binaries` | Also upload the target package's binary packages (default: recipe-only upload) |
 
 **Examples:**
 

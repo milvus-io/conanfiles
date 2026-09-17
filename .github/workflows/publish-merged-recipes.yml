@@ -94,7 +94,11 @@ jobs:
           CPPSTD: ${{ steps.cppstd.outputs.cppstd }}
         run: |
           while IFS=$'\t' read -r package version conanfile; do
-            echo "Triggering build-and-push for ${package}/${version}@milvus/dev with C++${CPPSTD}"
+            upload_binaries=no
+            if [ "$package" = "milvus-sdk-cpp" ]; then
+              upload_binaries=yes
+            fi
+            echo "Triggering build-and-push for ${package}/${version}@milvus/dev with C++${CPPSTD} (upload_binaries=${upload_binaries})"
 
             gh workflow run build-and-push.yml \
               --ref "$BASE_REF" \
@@ -103,5 +107,6 @@ jobs:
               -f "conanfile_path=${conanfile}" \
               -f "repository=production" \
               -f "user_channel=milvus/dev" \
-              -f "extra_options=-s compiler.cppstd=${CPPSTD} -s:b compiler.cppstd=${CPPSTD}"
+              -f "extra_options=-s compiler.cppstd=${CPPSTD} -s:b compiler.cppstd=${CPPSTD}" \
+              -f "upload_binaries=${upload_binaries}"
           done < "$TARGETS_FILE"
