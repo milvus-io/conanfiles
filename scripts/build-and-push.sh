@@ -18,7 +18,7 @@ set -e
 #   --settings-mode <mode>   Conan settings mode: linux-gcc-11 or runner-default (default: linux-gcc-11)
 #   --repository <repo>      Target Artifactory repository: production or testing (default: production)
 #   --no-upload              Build only, skip uploading to Artifactory
-#   --upload-binaries        Also upload the binary packages built in this run (default: recipe-only upload)
+#   --upload-binaries        Also upload the target package's binary packages (default: recipe-only upload)
 #
 # Examples:
 #   ./scripts/build-and-push.sh zlib 1.3.1
@@ -285,17 +285,24 @@ for repo in data.values():
 "
     echo ""
 
-    # Upload the target recipe and its dependencies. Recipe-only by default;
-    # with --upload-binaries, also upload the binary packages built in this run.
-    UPLOAD_ARGS=(--list="$PKGLIST" -r "$REMOTE_NAME" -c)
-    if [ "$DO_UPLOAD_BINARIES" = false ]; then
-        UPLOAD_ARGS+=(--only-recipe)
-    fi
-    if ! UPLOAD_OUTPUT=$(conan upload "${UPLOAD_ARGS[@]}" 2>&1); then
+    # Upload the target recipe and its dependencies (recipe-only).
+    if ! UPLOAD_OUTPUT=$(conan upload --list="$PKGLIST" -r "$REMOTE_NAME" -c --only-recipe 2>&1); then
         echo "$UPLOAD_OUTPUT"
         exit 1
     fi
     echo "$UPLOAD_OUTPUT"
+
+    # With --upload-binaries, additionally upload the target package's binaries.
+    if [ "$DO_UPLOAD_BINARIES" = true ]; then
+        echo ""
+        echo "Uploading binary packages for $PKG_REF ..."
+        if ! BINARY_UPLOAD_OUTPUT=$(conan upload "$PKG_REF" -r "$REMOTE_NAME" -c 2>&1); then
+            echo "$BINARY_UPLOAD_OUTPUT"
+            exit 1
+        fi
+        echo "$BINARY_UPLOAD_OUTPUT"
+        UPLOAD_OUTPUT="${UPLOAD_OUTPUT}"$'\n'"${BINARY_UPLOAD_OUTPUT}"
+    fi
 
     # ========================================================================
     # Step 6: Set build metadata properties on the uploaded recipe

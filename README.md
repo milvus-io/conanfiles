@@ -195,7 +195,7 @@ Builds a single Conan package from this repo's recipes and uploads the recipe an
 | `--settings-mode <mode>` | Conan settings mode: `linux-gcc-11` or `runner-default` (default: `linux-gcc-11`) |
 | `--repository <repo>` | Target Artifactory repository: `production` or `testing` (default: `production`) |
 | `--no-upload` | Build only, skip uploading to Artifactory |
-| `--upload-binaries` | Also upload the binary packages built in this run (default: recipe-only upload) |
+| `--upload-binaries` | Also upload the target package's binary packages (default: recipe-only upload) |
 
 **Examples:**
 
