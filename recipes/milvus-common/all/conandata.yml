@@ -1,4 +1,7 @@
 sources:
+  "1.0.0-cd3361a":
+    url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-cd3361a.tar.gz"
+    sha256: "ebcba1ab326c8ed536db537ed4ecc9961643248804ae3f01880cabc16b32c3f2"
   "1.0.0-491dd13":
     url: "https://github.com/zilliztech/milvus-common/archive/refs/tags/v1.0.0-491dd13.tar.gz"
     sha256: "95f3446abb50ec499809902e1349386612894f217ec91d8c53977dbed6469af6"
