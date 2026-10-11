@@ -1,0 +1,56 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -87,6 +87,7 @@
+     re2/prefilter_tree.cc
+     re2/prog.cc
+     re2/re2.cc
++    re2/required_literals.cc
+     re2/regexp.cc
+     re2/set.cc
+     re2/simplify.cc
+--- a/re2/re2.h
++++ b/re2/re2.h
+@@ -4,6 +4,9 @@
+ 
+ #ifndef RE2_RE2_H_
+ #define RE2_RE2_H_
++
++// Public necessary-literal API maintained by the Milvus RE2 package.
++#define RE2_REQUIRED_LITERALS_API_VERSION 1
+ 
+ // C++ interface to the re2 regular-expression library.
+ // RE2 supports Perl-style regular expressions (with extensions like
+@@ -741,6 +744,33 @@
+     bool one_line_;
+   };
+ 
++  // A necessary byte-substring condition for every match of this regexp.
++  // This API exposes values, not the internal Regexp representation. TRUE
++  // means no pruning; matching still requires the original RE2 matcher.
++  struct LiteralCondition {
++    enum class Op { True, Literal, And, Or };
++    Op op = Op::True;
++    std::string literal;
++    std::vector<LiteralCondition> children;
++  };
++
++  struct LiteralRequirements {
++    LiteralCondition condition;
++    std::string literal;  // A single mandatory substring, possibly one byte.
++  };
++
++  // Reads the already parsed regexp; never recompiles or guesses subsets.
++  // Index atoms are case-sensitive original bytes, at least two bytes long.
++  // Optional/folded/unknown branches become TRUE. Budget exhaustion never
++  // drops an OR branch. Zero-width assertions remain the matcher's concern.
++  // Requests are capped at 127 nodes, 64 bytes per index atom, 4096 bytes
++  // per scan literal and 4096 visited Regexp nodes. Invalid regexps or invalid
++  // budgets return no requirements. No class layout or matcher ABI changes.
++  LiteralRequirements RequiredLiterals(size_t max_nodes = 127,
++                                      size_t max_atom_bytes = 64,
++                                      size_t max_literal_bytes = 4096,
++                                      size_t max_visits = 4096) const;
++
+   // Returns the options set in the constructor.
+   const Options& options() const { return options_; }
+ 
