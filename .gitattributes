@@ -1,0 +1,2 @@
+# Empty unified-diff context lines contain a required leading space.
+recipes/re2/regex-v1/required_literals.patch -whitespace

@@ -1,4 +1,6 @@
 versions:
+  "20230301-milvus-regex1":
+    folder: regex-v1
   "20240702":
     folder: all
   "20240301":
