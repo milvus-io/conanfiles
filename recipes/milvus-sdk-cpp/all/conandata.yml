@@ -1,4 +1,7 @@
 sources:
+  "3.0.4":
+    url: "https://github.com/milvus-io/milvus-sdk-cpp/archive/refs/tags/v3.0.4.tar.gz"
+    sha256: "2350220e95d5a2eaf6e9fc7d0e39f74a2bdfacdcfce1b353eccb5f89bd95b95e"
   "3.0.3":
     url: "https://github.com/milvus-io/milvus-sdk-cpp/archive/refs/tags/v3.0.3.tar.gz"
     sha256: "72bbcde2791cb121cd74b45d573004ba9e3a33a2177caaaf6b265214f99ba52d"
