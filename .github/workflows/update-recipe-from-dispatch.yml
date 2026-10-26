@@ -17,7 +17,7 @@ jobs:
   update-recipe:
     name: create recipe update PR
     runs-on: ubuntu-22.04
-    timeout-minutes: 180
+    timeout-minutes: 300
 
     steps:
       - name: Check bot token
@@ -99,8 +99,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.CONANFILES_BOT_TOKEN }}
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+          WAIT_SECONDS: 7200
+          MAX_HEAD_RESETS: 1
         run: |
-          deadline=$((SECONDS + 7200))
+          wait_seconds="${WAIT_SECONDS}"
+          max_head_resets="${MAX_HEAD_RESETS}"
+          head_resets=0
+          deadline=$((SECONDS + wait_seconds))
           required_checks=("verify recipe versions" "DCO")
           state_query_failures=0
           checks_query_failures=0
@@ -108,8 +113,17 @@ jobs:
           checks_error=$(mktemp)
           trap 'rm -f "$state_error" "$checks_error"' EXIT
 
+          tracked_head=$(
+            gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid'
+          ) || exit 1
+
           while [ "$SECONDS" -lt "$deadline" ]; do
-            if ! pr_state=$(gh pr view "$PR_NUMBER" --json state --jq '.state' 2>"$state_error"); then
+            if ! pr_view=$(
+              gh pr view "$PR_NUMBER" \
+                --json state,headRefOid \
+                --jq '[.state, .headRefOid] | @tsv' \
+                2>"$state_error"
+            ); then
               state_query_failures=$((state_query_failures + 1))
               state_error_message=$(<"$state_error")
               : >"$state_error"
@@ -123,9 +137,30 @@ jobs:
             fi
             : >"$state_error"
             state_query_failures=0
+            pr_state=$(printf '%s' "$pr_view" | cut -f1)
+            current_head=$(printf '%s' "$pr_view" | cut -f2)
             if [ "$pr_state" != "OPEN" ]; then
               echo "Pull request #$PR_NUMBER is $pr_state before required checks passed" >&2
               exit 1
+            fi
+
+            if [ "$current_head" != "$tracked_head" ]; then
+              if [ "$head_resets" -ge "$max_head_resets" ]; then
+                echo "Pull request head changed more than $max_head_resets times" >&2
+                exit 1
+              fi
+
+              echo "Pull request head changed:"
+              echo "  old: $tracked_head"
+              echo "  new: $current_head"
+              echo "Resetting ${wait_seconds}s wait deadline"
+
+              tracked_head="$current_head"
+              head_resets=$((head_resets + 1))
+              deadline=$((SECONDS + wait_seconds))
+
+              sleep 30
+              continue
             fi
 
             if ! checks_tsv=$(gh pr view "$PR_NUMBER" --json statusCheckRollup --jq '.statusCheckRollup[] | [.name, .status, .conclusion] | @tsv' 2>"$checks_error"); then
