@@ -40,7 +40,9 @@ class AwsCCompression(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) >= "0.3.2":
+        if Version(self.version) >= "1.0.0":
+            self.requires("aws-c-common/1.0.5", transitive_headers=True, transitive_libs=True)
+        elif Version(self.version) >= "0.3.2":
             self.requires("aws-c-common/0.14.0", transitive_headers=True, transitive_libs=True)
         elif Version(self.version) >= "0.3.1":
             self.requires("aws-c-common/0.12.5", transitive_headers=True, transitive_libs=True)
@@ -54,6 +56,12 @@ class AwsCCompression(ConanFile):
 
     def generate(self):
         tc = CMakeToolchain(self)
+        if Version(self.version) >= "1.0.0":
+            # Upstream reads this module before project() loads the toolchain.
+            tc.cache_variables["AWS_GET_VERSION_MODULE"] = os.path.join(
+                self.dependencies["aws-c-common"].package_folder,
+                "lib", "cmake", "aws-c-common", "modules", "AwsGetVersion.cmake",
+            ).replace(os.sep, "/")
         tc.variables["BUILD_TESTING"] = False
         tc.generate()
         deps = CMakeDeps(self)

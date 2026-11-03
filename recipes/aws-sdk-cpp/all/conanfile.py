@@ -340,7 +340,21 @@ class AwsSdkCppConan(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) >= "1.11.842":
+        if Version(self.version) >= "1.11.921":
+            self.requires("aws-c-common/1.0.5")
+            self.requires("aws-c-event-stream/1.0.0")
+            self.requires("aws-checksums/1.0.1")
+            self.requires("aws-c-cal/1.0.0")
+            self.requires("aws-c-http/1.1.1")
+            self.requires("aws-c-io/1.1.1")
+            self.requires("aws-c-auth/1.0.2")
+            self.requires("aws-c-compression/1.0.0")
+            self.requires("aws-c-mqtt/1.1.2")
+            self.requires("aws-c-sdkutils/1.0.1")
+            self.requires("aws-crt-cpp/0.44.3", transitive_headers=True)
+            if self.options.get_safe("s3-crt"):
+                self.requires("aws-c-s3/1.5.1")
+        elif Version(self.version) >= "1.11.842":
             self.requires("aws-c-common/0.14.0")
             self.requires("aws-c-event-stream/0.7.1")
             self.requires("aws-checksums/0.2.10")
