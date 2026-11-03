@@ -42,7 +42,10 @@ class AwsCIO(ConanFile):
     def requirements(self):
         # the versions of aws-c-common and aws-c-io are tied since aws-c-common/0.6.12 and aws-c-io/0.10.10
         # Please refer https://github.com/conan-io/conan-center-index/issues/7763
-        if Version(self.version) >= "0.27.0":
+        if Version(self.version) >= "1.1.1":
+            self.requires("aws-c-common/1.0.5", transitive_headers=True, transitive_libs=True)
+            self.requires("aws-c-cal/1.0.0", transitive_headers=True, transitive_libs=True)
+        elif Version(self.version) >= "0.27.0":
             self.requires("aws-c-common/0.14.0", transitive_headers=True, transitive_libs=True)
             self.requires("aws-c-cal/0.9.14", transitive_headers=True, transitive_libs=True)
         elif Version(self.version) >= "0.23.2":
@@ -55,7 +58,10 @@ class AwsCIO(ConanFile):
             self.requires("aws-c-common/0.9.6", transitive_headers=True, transitive_libs=True)
             self.requires("aws-c-cal/0.6.9", transitive_headers=True, transitive_libs=True)
 
-        if Version(self.version) >= "0.27.0":
+        if Version(self.version) >= "1.1.1":
+            if self.settings.os in ["Linux", "FreeBSD", "Android", "Macos"]:
+                self.requires("s2n/1.7.13")
+        elif Version(self.version) >= "0.27.0":
             if self.settings.os in ["Linux", "FreeBSD", "Android", "Macos"]:
                 self.requires("s2n/1.7.4")
         elif self.settings.os in ["Linux", "FreeBSD", "Android"]:
@@ -69,6 +75,12 @@ class AwsCIO(ConanFile):
 
     def generate(self):
         tc = CMakeToolchain(self)
+        if Version(self.version) >= "1.1.1":
+            # Upstream reads this module before project() loads the toolchain.
+            tc.cache_variables["AWS_GET_VERSION_MODULE"] = os.path.join(
+                self.dependencies["aws-c-common"].package_folder,
+                "lib", "cmake", "aws-c-common", "modules", "AwsGetVersion.cmake",
+            ).replace(os.sep, "/")
         tc.variables["BUILD_TESTING"] = False
         tc.generate()
 

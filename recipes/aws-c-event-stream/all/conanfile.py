@@ -43,7 +43,10 @@ class AwsCEventStream(ConanFile):
         cmake_layout(self, src_folder="src")
 
     def requirements(self):
-        if Version(self.version) >= "0.7.1":
+        if Version(self.version) >= "1.0.0":
+            self.requires("aws-c-common/1.0.5", transitive_headers=True, transitive_libs=True)
+            self.requires("aws-checksums/1.0.1")
+        elif Version(self.version) >= "0.7.1":
             self.requires("aws-c-common/0.14.0", transitive_headers=True, transitive_libs=True)
             self.requires("aws-checksums/0.2.10")
         elif Version(self.version) >= "0.5.7":
@@ -55,7 +58,9 @@ class AwsCEventStream(ConanFile):
         else:
             self.requires("aws-c-common/0.9.6", transitive_headers=True, transitive_libs=True)
             self.requires("aws-checksums/0.1.17")
-        if Version(self.version) >= "0.7.1":
+        if Version(self.version) >= "1.0.0":
+            self.requires("aws-c-io/1.1.1")
+        elif Version(self.version) >= "0.7.1":
             self.requires("aws-c-io/0.27.0")
         elif Version(self.version) >= "0.5.7":
             self.requires("aws-c-io/0.23.2")
@@ -72,6 +77,12 @@ class AwsCEventStream(ConanFile):
 
     def generate(self):
         tc = CMakeToolchain(self)
+        if Version(self.version) >= "1.0.0":
+            # Upstream reads this module before project() loads the toolchain.
+            tc.cache_variables["AWS_GET_VERSION_MODULE"] = os.path.join(
+                self.dependencies["aws-c-common"].package_folder,
+                "lib", "cmake", "aws-c-common", "modules", "AwsGetVersion.cmake",
+            ).replace(os.sep, "/")
         tc.variables["BUILD_BINARIES"] = False
         tc.variables["BUILD_TESTING"] = False
         tc.generate()
