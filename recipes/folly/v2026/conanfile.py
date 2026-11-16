@@ -208,6 +208,14 @@ class FollyConan(ConanFile):
         deps.generate()
 
     def _patch_sources(self):
+        # Async exception tracing requires frame pointers in every caller.
+        # Keep its automatic registration out of the default shared library.
+        replace_in_file(
+            self,
+            os.path.join(self.source_folder, "folly", "debugging", "exception_tracer", "CMakeLists.txt"),
+            "  NAME smart_exception_stack_trace_hooks\n",
+            "  NAME smart_exception_stack_trace_hooks\n  EXCLUDE_FROM_MONOLITH\n",
+        )
         # Make sure will consume Conan dependencies
         folly_deps = os.path.join(self.source_folder, "CMake", "folly-deps.cmake")
         replace_in_file(self, folly_deps, " MODULE", " REQUIRED CONFIG")
@@ -296,6 +304,5 @@ class FollyConan(ConanFile):
         self.cpp_info.components["folly_test_util"].libs = ["folly_test_util"]
         self.cpp_info.components["folly_test_util"].requires = ["libfolly"]
 
-        # In 2026.04.20.00, exception_tracer/counter code is compiled into libfolly.so
-        # (the modular build merges them as object libraries), so no separate
-        # component declarations are needed.
+        # Exception tracer/counter APIs remain in libfolly.so. The automatic
+        # async stack trace hook is built separately and is not linked by default.
