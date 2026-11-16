@@ -1,9 +1,17 @@
 #include <cstdint>
+#include <iostream>
 #include <stdexcept>
 #include <string_view>
 
 #include <folly/Uri.h>
 #include <folly/tracing/AsyncStack.h>
+
+#ifdef __linux__
+#include <linux/time_types.h>
+#include <folly/io/async/IoUringBackend.h>
+
+static_assert(FOLLY_HAS_LIBURING, "Folly must expose io_uring support on Linux");
+#endif
 
 #if defined(__linux__) && defined(__x86_64__) && defined(__GNUC__) && !defined(__clang__)
 namespace {
@@ -39,6 +47,11 @@ __attribute__((noinline, optimize("omit-frame-pointer"))) bool catchWithoutFrame
 #endif
 
 int main() {
+#ifdef __linux__
+    std::cout << "liburing major version: " << io_uring_major_version() << '\n';
+    // Building and linking must work even when the host disables io_uring.
+    std::cout << "io_uring available: " << folly::IoUringBackend::isAvailable() << '\n';
+#endif
     if (folly::Uri("https://github.com/facebook/folly").host() != "github.com") {
         return 1;
     }
