@@ -84,9 +84,8 @@ class FollyConan(ConanFile):
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.requires("libiberty/9.1.0")
             self.requires("libunwind/1.8.1")
-        # liburing removed: liburing 2.6 compat.h redefines __kernel_timespec
-        # conflicting with newer kernel headers on ubuntu-latest runners.
-        # Folly io_uring support is optional.
+        if self.settings.os == "Linux":
+            self.requires("liburing/2.15", transitive_headers=True, transitive_libs=True)
         # INFO: Folly does not support fmt 11 on MSVC: https://github.com/facebook/folly/issues/2250
         self.requires("fmt/10.2.1", transitive_headers=True, transitive_libs=True)
 
@@ -191,6 +190,7 @@ class FollyConan(ConanFile):
         deps.set_property("double-conversion", "cmake_file_name", "DoubleConversion")
         deps.set_property("fast_float", "cmake_file_name", "FastFloat")
         deps.set_property("fmt", "cmake_file_name", "fmt")
+        deps.set_property("fmt", "cmake_target_aliases", ["fmt::fmt"])
         deps.set_property("gflags", "cmake_file_name", "Gflags")
         deps.set_property("glog", "cmake_file_name", "Glog")
         deps.set_property("libdwarf", "cmake_file_name", "LibDwarf")
@@ -198,7 +198,8 @@ class FollyConan(ConanFile):
         deps.set_property("libiberty", "cmake_file_name", "Libiberty")
         deps.set_property("libsodium", "cmake_file_name", "Libsodium")
         deps.set_property("libunwind", "cmake_file_name", "LibUnwind")
-        # liburing removed due to kernel header conflict
+        if self.settings.os == "Linux":
+            deps.set_property("liburing", "cmake_file_name", "LibUring")
         deps.set_property("lz4", "cmake_file_name", "LZ4")
         deps.set_property("openssl", "cmake_file_name", "OpenSSL")
         deps.set_property("snappy", "cmake_file_name", "Snappy")
@@ -268,6 +269,7 @@ class FollyConan(ConanFile):
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.components["libfolly"].requires.extend(["libiberty::libiberty", "libunwind::libunwind"])
         if self.settings.os == "Linux":
+            self.cpp_info.components["libfolly"].requires.append("liburing::liburing")
             self.cpp_info.components["libfolly"].system_libs.extend(["pthread", "dl", "rt"])
             self.cpp_info.components["libfolly"].defines.extend(["FOLLY_HAVE_ELF", "FOLLY_HAVE_DWARF"])
         elif self.settings.os == "Windows":
