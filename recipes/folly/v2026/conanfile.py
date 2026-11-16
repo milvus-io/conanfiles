@@ -190,6 +190,7 @@ class FollyConan(ConanFile):
         deps.set_property("double-conversion", "cmake_file_name", "DoubleConversion")
         deps.set_property("fast_float", "cmake_file_name", "FastFloat")
         deps.set_property("fmt", "cmake_file_name", "fmt")
+        deps.set_property("fmt", "cmake_target_aliases", ["fmt::fmt"])
         deps.set_property("gflags", "cmake_file_name", "Gflags")
         deps.set_property("glog", "cmake_file_name", "Glog")
         deps.set_property("libdwarf", "cmake_file_name", "LibDwarf")
