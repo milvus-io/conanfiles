@@ -27,10 +27,12 @@ class FollyConan(ConanFile):
     options = {
         "shared": [True, False],
         "fPIC": [True, False],
+        "with_libsodium": [True, False],
     }
     default_options = {
         "shared": False,
         "fPIC": True,
+        "with_libsodium": True,
     }
 
     @property
@@ -79,7 +81,8 @@ class FollyConan(ConanFile):
         self.requires("zstd/1.5.5", transitive_libs=True)
         if not is_msvc(self):
             self.requires("libdwarf/0.9.1")
-        self.requires("libsodium/1.0.19")
+        if self.options.with_libsodium:
+            self.requires("libsodium/1.0.19")
         self.requires("xz_utils/[>=5.4.5 <6]")
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.requires("libiberty/9.1.0")
@@ -150,6 +153,9 @@ class FollyConan(ConanFile):
         env = VirtualBuildEnv(self)
         env.generate()
         tc = CMakeToolchain(self)
+        if not self.options.with_libsodium:
+            # folly builds folly/crypto (Blake2xb, LtHash) only when it finds libsodium
+            tc.cache_variables["CMAKE_DISABLE_FIND_PACKAGE_Libsodium"] = True
         tc.variables["CMAKE_PROJECT_folly_INCLUDE"] = "conan_deps.cmake"
         # Folly fails to check Gflags: https://github.com/conan-io/conan/issues/12012
         tc.variables["CMAKE_TRY_COMPILE_CONFIGURATION"] = str(self.settings.build_type)
@@ -275,9 +281,10 @@ class FollyConan(ConanFile):
             "snappy::snappy",
             "zlib::zlib",
             "zstd::zstd",
-            "libsodium::libsodium",
             "xz_utils::xz_utils",
         ]
+        if self.options.with_libsodium:
+            self.cpp_info.components["libfolly"].requires.append("libsodium::libsodium")
         if not is_msvc(self):
             self.cpp_info.components["libfolly"].requires.append("libdwarf::libdwarf")
         if self.settings.os in ["Linux", "FreeBSD"]:
