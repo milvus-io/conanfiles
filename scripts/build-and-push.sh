@@ -15,7 +15,11 @@ set -e
 #   --conanfile <path>        Relative path to conanfile.py within the package dir (default: all/conanfile.py)
 #   --user-channel <u/c>     User/channel for the package (e.g. milvus/dev)
 #   --extra-options <opts>   Extra conan options (e.g. "-o pkg:opt=val -c conf=val")
-#   --settings-mode <mode>   Conan settings mode: linux-gcc-11 or runner-default (default: linux-gcc-11)
+#   --settings-mode <mode>   Conan settings mode: linux-gcc-11, runner-default or custom (default: linux-gcc-11)
+#   --compiler <compiler>    Custom compiler type for --settings-mode custom: gcc or clang
+#   --compiler-version <v>   Custom compiler version for --settings-mode custom (e.g. 16, 23)
+#   --libcxx <libcxx>        Custom libcxx for --settings-mode custom; defaults to libstdc++11
+#                            (clang on macOS defaults to libc++)
 #   --repository <repo>      Target Artifactory repository: production or testing (default: production)
 #   --no-upload              Build only, skip uploading to Artifactory
 #   --upload-binaries        Also upload the target package's binary packages (default: recipe-only upload)
@@ -40,6 +44,10 @@ ARTIFACTORY_STORAGE_URL_TESTING="https://milvus01.jfrog.io/artifactory/api/stora
 # Common conan settings
 CONAN_SETTINGS_LINUX_GCC_11="-s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -s compiler.cppstd=20 -s build_type=Release -s:b compiler.cppstd=20"
 CONAN_SETTINGS_RUNNER_DEFAULT="-s build_type=Release -s:b build_type=Release -s compiler.cppstd=20 -s:b compiler.cppstd=20"
+# Custom settings (--settings-mode custom), populated from --compiler/--compiler-version/--libcxx
+CUSTOM_COMPILER=""
+CUSTOM_COMPILER_VERSION=""
+CUSTOM_LIBCXX=""
 
 # Use 6 parallel jobs for building
 CONAN_JOBS="-c tools.build:jobs=6"
@@ -76,10 +84,26 @@ while [ $# -gt 0 ]; do
             ;;
         --settings-mode)
             SETTINGS_MODE="$2"
-            if [ "$SETTINGS_MODE" != "linux-gcc-11" ] && [ "$SETTINGS_MODE" != "runner-default" ]; then
-                echo "Error: --settings-mode must be 'linux-gcc-11' or 'runner-default'" >&2
+            if [ "$SETTINGS_MODE" != "linux-gcc-11" ] && [ "$SETTINGS_MODE" != "runner-default" ] && [ "$SETTINGS_MODE" != "custom" ]; then
+                echo "Error: --settings-mode must be 'linux-gcc-11', 'runner-default' or 'custom'" >&2
                 exit 1
             fi
+            shift 2
+            ;;
+        --compiler)
+            CUSTOM_COMPILER="$2"
+            if [ "$CUSTOM_COMPILER" != "gcc" ] && [ "$CUSTOM_COMPILER" != "clang" ]; then
+                echo "Error: --compiler must be 'gcc' or 'clang'" >&2
+                exit 1
+            fi
+            shift 2
+            ;;
+        --compiler-version)
+            CUSTOM_COMPILER_VERSION="$2"
+            shift 2
+            ;;
+        --libcxx)
+            CUSTOM_LIBCXX="$2"
             shift 2
             ;;
         --repository)
@@ -117,14 +141,29 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$PACKAGE" ] || [ -z "$VERSION" ]; then
-    echo "Usage: $0 <package> <version> [--conanfile <path>] [--user-channel <u/c>] [--extra-options <opts>] [--settings-mode linux-gcc-11|runner-default] [--repository production|testing] [--no-upload] [--upload-binaries]" >&2
+    echo "Usage: $0 <package> <version> [--conanfile <path>] [--user-channel <u/c>] [--extra-options <opts>] [--settings-mode linux-gcc-11|runner-default|custom] [--compiler gcc|clang] [--compiler-version <v>] [--libcxx <libcxx>] [--repository production|testing] [--no-upload] [--upload-binaries]" >&2
     exit 1
 fi
 
 if [ "$SETTINGS_MODE" = "linux-gcc-11" ]; then
     CONAN_SETTINGS="$CONAN_SETTINGS_LINUX_GCC_11"
-else
+elif [ "$SETTINGS_MODE" = "runner-default" ]; then
     CONAN_SETTINGS="$CONAN_SETTINGS_RUNNER_DEFAULT"
+else
+    if [ -z "$CUSTOM_COMPILER" ] || [ -z "$CUSTOM_COMPILER_VERSION" ]; then
+        echo "Error: --settings-mode custom requires --compiler and --compiler-version" >&2
+        exit 1
+    fi
+    if [ -z "$CUSTOM_LIBCXX" ]; then
+        if [ "$CUSTOM_COMPILER" = "gcc" ]; then
+            CUSTOM_LIBCXX="libstdc++11"
+        elif [ "$CUSTOM_COMPILER" = "clang" ] && [ "$(uname -s)" = "Darwin" ]; then
+            CUSTOM_LIBCXX="libc++"
+        else
+            CUSTOM_LIBCXX="libstdc++11"
+        fi
+    fi
+    CONAN_SETTINGS="-s compiler=${CUSTOM_COMPILER} -s compiler.version=${CUSTOM_COMPILER_VERSION} -s compiler.libcxx=${CUSTOM_LIBCXX} -s compiler.cppstd=20 -s build_type=Release -s:b compiler.cppstd=20"
 fi
 
 # Restrict production uploads to master and release branches (3.x).
