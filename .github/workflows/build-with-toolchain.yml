@@ -1,3 +1,8 @@
+# Manually build a single recipe with a newer compiler toolchain (gcc-16 or
+# clang-23) that is not preinstalled on GitHub-hosted runners. Installs the
+# toolchain, extends the Conan settings.yml (clang 23 is not in the Conan
+# 2.25.1 default list), then runs build-and-push.sh with --settings-mode custom.
+# Build-only validation: no Artifactory upload.
 name: Build with Custom Toolchain
 
 run-name: Build ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} with ${{ inputs.compiler }} on ${{ inputs.os }}
