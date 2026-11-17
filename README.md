@@ -133,6 +133,7 @@ Builds a package from a local recipe without uploading anything to Artifactory. 
 |---|---|
 | `runner-default` | Uses `conan profile detect` from the selected runner for compiler/compiler version/libcxx, while forcing Release and default C++17. This is the recommended mode for both `ubuntu-24.04-arm` and `macos-15`; add `-s compiler.cppstd=<std>` in `extra_options` when a recipe needs a different C++ standard. |
 | `linux-gcc-11` | Uses the repo's existing Linux production settings: GCC 11, libstdc++11, C++17, Release. Use this when you need compatibility with existing Linux package IDs. |
+| `custom` | Uses explicit compiler settings passed via `--compiler`, `--compiler-version` and `--libcxx`, e.g. gcc-16 or clang-23. C++20 and Release are forced. Used by the `Build with Custom Toolchain` workflow. |
 
 **Job: `try-build`**
 
@@ -152,6 +153,40 @@ Builds a package from a local recipe without uploading anything to Artifactory. 
 | `settings_mode` | `runner-default` |
 | `user_channel` | `milvus/dev` |
 | `extra_options` | `-s compiler.cppstd=20` |
+
+---
+
+### build-with-toolchain.yml
+
+Builds a package from a local recipe with a selected compiler toolchain (gcc-16 or clang-23) on a GitHub-hosted runner, without uploading anything to Artifactory. Used to validate recipes with newer compilers before adopting them. The workflow installs the requested toolchain (Homebrew on macOS, apt.llvm.org for clang-23 / Homebrew-on-Linux for gcc-16 on Ubuntu), extends the Conan `settings.yml` so clang-23 passes settings validation, then runs the build through `build-and-push.sh` with `--settings-mode custom`.
+
+**Inputs:**
+
+| Input | Required | Description |
+|---|---|---|
+| `package` | Yes | Package name (e.g. `folly`) |
+| `version` | Yes | Package version (e.g. `2026.04.20.00`) |
+| `conanfile_path` | Yes | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
+| `compiler` | Yes | Toolchain: `gcc-16` or `clang-23` |
+| `os` | Yes | GitHub-hosted runner OS: `ubuntu-24.04` or `macos-26` |
+| `user_channel` | No | User/channel for the package (e.g. `milvus/dev`) |
+| `extra_options` | No | Extra conan options (e.g. `-s compiler.cppstd=20 -o pkg:opt=val`) |
+
+**Supported toolchains:**
+
+| OS | gcc-16 | clang-23 |
+|---|---|---|
+| `ubuntu-24.04` | Homebrew-on-Linux (`gcc@16`) | apt.llvm.org (`clang-23`) |
+| `macos-26` | Homebrew (`gcc@16`) | Homebrew (`llvm@23`) |
+
+**Job: `build-with-toolchain`**
+
+| Step | Command | Description |
+|---|---|---|
+| Install Conan and dependencies | `python -m pip install conan==2.25.1 pyyaml` | Install Conan 2.25.1, pyyaml, and detect the runner profile |
+| Extend Conan settings | `python3 ./scripts/extend-conan-settings.py` | Adds clang 23 to the active `settings.yml` when missing |
+| Install toolchain | — | Installs the requested compiler for the selected OS |
+| Build with toolchain | `./scripts/build-and-push.sh --settings-mode custom --compiler ... --compiler-version ... --libcxx ... --repository testing --no-upload` | Builds the recipe with the selected compiler, skips upload |
 
 ## Scripts for Manual Publish
 
@@ -193,7 +228,10 @@ Builds a single Conan package from this repo's recipes and uploads the recipe an
 | `--conanfile <path>` | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
 | `--user-channel <u/c>` | User/channel for the package (e.g. `milvus/dev`) |
 | `--extra-options <opts>` | Extra conan options (e.g. `-o pkg:opt=val`) |
-| `--settings-mode <mode>` | Conan settings mode: `linux-gcc-11` or `runner-default` (default: `linux-gcc-11`) |
+| `--settings-mode <mode>` | Conan settings mode: `linux-gcc-11`, `runner-default` or `custom` (default: `linux-gcc-11`) |
+| `--compiler <compiler>` | Custom compiler type for `--settings-mode custom`: `gcc` or `clang` |
+| `--compiler-version <v>` | Custom compiler version for `--settings-mode custom` (e.g. `16`, `23`) |
+| `--libcxx <libcxx>` | Custom libcxx for `--settings-mode custom`; defaults to `libstdc++11` (`libc++` for clang on macOS) |
 | `--repository <repo>` | Target Artifactory repository: `production` or `testing` (default: `production`) |
 | `--no-upload` | Build only, skip uploading to Artifactory |
 | `--upload-binaries` | Also upload the target package's binary packages (default: recipe-only upload) |
