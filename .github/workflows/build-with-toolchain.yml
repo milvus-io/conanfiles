@@ -1,8 +1,7 @@
 # Manually build a single recipe with a newer compiler toolchain (gcc-16 or
-# clang-23) that is not preinstalled on GitHub-hosted runners. Installs the
-# toolchain, extends the Conan settings.yml (clang 23 is not in the Conan
-# 2.25.1 default list), then runs build-and-push.sh with --settings-mode custom.
-# Build-only validation: no Artifactory upload.
+# clang-23) that is not preinstalled on GitHub-hosted runners. Uses Conan 2.33.0,
+# the first release that supports both gcc 16 and clang 23 in settings, then runs
+# build-and-push.sh with --settings-mode custom. Build-only validation: no upload.
 name: Build with Custom Toolchain
 
 run-name: Build ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} with ${{ inputs.compiler }} on ${{ inputs.os }}
@@ -61,7 +60,7 @@ jobs:
       - name: Install Conan and dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install conan==2.25.1 pyyaml
+          python -m pip install conan==2.33.0 pyyaml
           conan --version
           conan profile detect
 
@@ -84,10 +83,6 @@ jobs:
           esac
           echo "Using compiler.cppstd=$cppstd"
           echo "cppstd=$cppstd" >> "$GITHUB_OUTPUT"
-
-      - name: Extend Conan settings for clang-23
-        run: |
-          python3 ./scripts/extend-conan-settings.py
 
       - name: Install toolchain
         env:
@@ -168,7 +163,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CONAN_HOME }}/p
-          key: build-with-toolchain-${{ inputs.os }}-${{ inputs.compiler }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', 'scripts/extend-conan-settings.py', '.github/workflows/build-with-toolchain.yml') }}
+          key: build-with-toolchain-${{ inputs.os }}-${{ inputs.compiler }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/build-with-toolchain.yml') }}
           restore-keys: |
             build-with-toolchain-${{ inputs.os }}-${{ inputs.compiler }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-
 
