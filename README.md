@@ -115,6 +115,8 @@ When triggering the workflow from the GitHub Actions page (**Run workflow** butt
 
 Builds a package from a local recipe without uploading anything to Artifactory. Used to validate recipes on different OS before publishing. Besides the runner's native compiler, it can also install and build with a newer toolchain (gcc-16 or clang-23).
 
+The build always runs under a hardcoded `milvus/ci` user/channel (never published), so `conan create` uses the **local recipe** instead of resolving a previously published `@milvus/dev` revision from the production remote.
+
 **Inputs:**
 
 | Input | Required | Description |
@@ -125,8 +127,7 @@ Builds a package from a local recipe without uploading anything to Artifactory. 
 | `runner` | Yes | GitHub-hosted runner: `ubuntu-22.04`, `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15` or `macos-26` |
 | `compiler` | Yes | Toolchain: `none` (runner native), `gcc-16` or `clang-23` (default: `none`) |
 | `settings_mode` | Yes | Conan settings mode, used when `compiler=none`: `runner-default` or `linux-gcc-11` (default: `runner-default`) |
-| `user_channel` | No | User/channel for the package (e.g. `milvus/dev`); ignored when `compiler=gcc-16/clang-23` |
-| `extra_options` | No | Extra conan options (e.g. `-s compiler.cppstd=20 -o pkg:opt=val`) |
+| `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20`) |
 
 **Settings modes:**
 
@@ -145,15 +146,13 @@ When `compiler` is `gcc-16` or `clang-23`, the workflow installs the requested t
 | Ubuntu | Homebrew-on-Linux (`gcc@16`) | apt.llvm.org (`clang-23`) |
 | macOS | Homebrew (`gcc@16`) | Homebrew (`llvm@23`) |
 
-The build always runs under a hardcoded `milvus/ci` user/channel (never published), so `conan create` uses the **local recipe** instead of resolving a previously published `@milvus/dev` revision from the production remote.
-
 **Job: `try-build`**
 
 | Step | Command | Description |
 |---|---|---|
 | Install Conan and dependencies | `python -m pip install conan==2.25.1 pyyaml` / `conan==2.33.0` | Conan 2.25.1 for native compilers, 2.33.0 for gcc-16/clang-23; then detect the runner profile |
 | Install toolchain | — | Installs gcc-16/clang-23 when selected |
-| Try build | `./scripts/build-and-push.sh --settings-mode <mode> --repository testing --no-upload` | Builds the recipe through the standard script but skips Artifactory upload |
+| Try build | `./scripts/build-and-push.sh --user-channel milvus/ci --settings-mode <mode> --repository testing --no-upload` | Builds the local recipe through the standard script but skips Artifactory upload |
 
 **Example inputs for `milvus-common`:**
 
@@ -165,7 +164,6 @@ The build always runs under a hardcoded `milvus/ci` user/channel (never publishe
 | `runner` | `ubuntu-24.04-arm` |
 | `compiler` | `none` |
 | `settings_mode` | `runner-default` |
-| `user_channel` | `milvus/dev` |
 | `extra_options` | `-s compiler.cppstd=20` |
 
 ## Scripts for Manual Publish

@@ -1,6 +1,6 @@
 name: Try Build
 
-run-name: Try build ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} on ${{ inputs.runner }}${{ inputs.compiler != 'none' && format(' ({0})', inputs.compiler) || '' }}
+run-name: Try build ${{ inputs.package }}/${{ inputs.version }} on ${{ inputs.runner }}${{ inputs.compiler != 'none' && format(' ({0})', inputs.compiler) || '' }}
 
 on:
   workflow_dispatch:
@@ -43,14 +43,10 @@ on:
           - runner-default
           - linux-gcc-11
         default: runner-default
-      user_channel:
-        description: 'define the user and channel for the package (ignored when compiler=gcc-16/clang-23)'
-        required: false
-        default: ''
       extra_options:
         description: 'extra conan options (e.g. -s compiler.cppstd=20 -o pkg:opt=val -c conf=val)'
         required: false
-        default: ''
+        default: '-s compiler.cppstd=20 -s:b compiler.cppstd=20'
 
 jobs:
   try-build:
@@ -188,22 +184,18 @@ jobs:
           INPUT_CONANFILE: ${{ github.event.inputs.conanfile_path }}
           INPUT_COMPILER: ${{ github.event.inputs.compiler }}
           INPUT_SETTINGS_MODE: ${{ github.event.inputs.settings_mode }}
-          INPUT_USER_CHANNEL: ${{ github.event.inputs.user_channel }}
           INPUT_EXTRA_OPTIONS: ${{ github.event.inputs.extra_options }}
           COMPILER: ${{ steps.toolchain.outputs.compiler }}
           COMPILER_VERSION: ${{ steps.toolchain.outputs.compiler_version }}
           LIBCXX: ${{ steps.toolchain.outputs.libcxx }}
         run: |
-          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --repository testing --no-upload)
+          # Hardcoded milvus/ci channel (never published) so `conan create` always
+          # builds the local recipe instead of a published @milvus/dev revision.
+          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --user-channel milvus/ci --repository testing --no-upload)
           if [ "$INPUT_COMPILER" = "gcc-16" ] || [ "$INPUT_COMPILER" = "clang-23" ]; then
-            # Custom toolchain: always build the local recipe under milvus/ci so
-            # a previously published @milvus/dev revision is never picked up.
-            ARGS+=(--settings-mode custom --compiler "$COMPILER" --compiler-version "$COMPILER_VERSION" --libcxx "$LIBCXX" --user-channel milvus/ci)
+            ARGS+=(--settings-mode custom --compiler "$COMPILER" --compiler-version "$COMPILER_VERSION" --libcxx "$LIBCXX")
           else
             ARGS+=(--settings-mode "$INPUT_SETTINGS_MODE")
-            if [ -n "$INPUT_USER_CHANNEL" ]; then
-              ARGS+=(--user-channel "$INPUT_USER_CHANNEL")
-            fi
           fi
           if [ -n "$INPUT_EXTRA_OPTIONS" ]; then
             ARGS+=(--extra-options "$INPUT_EXTRA_OPTIONS")
