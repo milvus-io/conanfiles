@@ -1,6 +1,6 @@
 name: Try Build
 
-run-name: Try build ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} on ${{ inputs.runner }}
+run-name: Try build ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} on ${{ inputs.runner }}${{ inputs.compiler != 'none' && format(' ({0})', inputs.compiler) || '' }}
 
 on:
   workflow_dispatch:
@@ -26,8 +26,17 @@ on:
           - macos-15
           - macos-26
         default: ubuntu-24.04-arm
+      compiler:
+        description: 'compiler toolchain (none = runner native compiler)'
+        required: true
+        type: choice
+        options:
+          - none
+          - gcc-16
+          - clang-23
+        default: none
       settings_mode:
-        description: 'Conan settings mode'
+        description: 'Conan settings mode (used when compiler=none)'
         required: true
         type: choice
         options:
@@ -35,11 +44,11 @@ on:
           - linux-gcc-11
         default: runner-default
       user_channel:
-        description: 'define the user and channel for the package'
+        description: 'define the user and channel for the package (ignored when compiler=gcc-16/clang-23)'
         required: false
         default: ''
       extra_options:
-        description: 'extra conan options (e.g. -o pkg:opt=val -c conf=val)'
+        description: 'extra conan options (e.g. -s compiler.cppstd=20 -o pkg:opt=val -c conf=val)'
         required: false
         default: ''
 
@@ -59,7 +68,12 @@ jobs:
       - name: Install Conan and dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install conan==2.25.1 pyyaml
+          if [ "${{ github.event.inputs.compiler }}" = "gcc-16" ] || [ "${{ github.event.inputs.compiler }}" = "clang-23" ]; then
+            # First Conan release whose bundled settings support gcc 16 and clang 23.
+            python -m pip install conan==2.33.0 pyyaml
+          else
+            python -m pip install conan==2.25.1 pyyaml
+          fi
           conan --version
           conan profile detect
 
@@ -84,27 +98,112 @@ jobs:
           echo "Using compiler.cppstd=$cppstd"
           echo "cppstd=$cppstd" >> "$GITHUB_OUTPUT"
 
+      - name: Install toolchain
+        if: github.event.inputs.compiler == 'gcc-16' || github.event.inputs.compiler == 'clang-23'
+        env:
+          INPUT_COMPILER: ${{ github.event.inputs.compiler }}
+        run: |
+          set -euo pipefail
+          BIN_DIR="$RUNNER_TEMP/toolchain-bin"
+          case "$RUNNER_OS/$INPUT_COMPILER" in
+            macOS/clang-23)
+              brew install llvm@23
+              echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
+              ;;
+            macOS/gcc-16)
+              brew install gcc@16
+              mkdir -p "$BIN_DIR"
+              ln -sf "$(brew --prefix gcc@16)/bin/gcc-16" "$BIN_DIR/gcc"
+              ln -sf "$(brew --prefix gcc@16)/bin/g++-16" "$BIN_DIR/g++"
+              echo "$BIN_DIR" >> "$GITHUB_PATH"
+              ;;
+            Linux/clang-23)
+              wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+              chmod +x /tmp/llvm.sh
+              sudo /tmp/llvm.sh 23
+              mkdir -p "$BIN_DIR"
+              ln -sf /usr/bin/clang-23 "$BIN_DIR/clang"
+              ln -sf /usr/bin/clang++-23 "$BIN_DIR/clang++"
+              echo "$BIN_DIR" >> "$GITHUB_PATH"
+              ;;
+            Linux/gcc-16)
+              NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+              brew install gcc@16
+              mkdir -p "$BIN_DIR"
+              ln -sf "$(brew --prefix gcc@16)/bin/gcc-16" "$BIN_DIR/gcc"
+              ln -sf "$(brew --prefix gcc@16)/bin/g++-16" "$BIN_DIR/g++"
+              echo "$BIN_DIR" >> "$GITHUB_PATH"
+              ;;
+            *)
+              echo "Unsupported OS/compiler combination: $RUNNER_OS/$INPUT_COMPILER" >&2
+              exit 1
+              ;;
+          esac
 
-      - name: Cache Conan packages (cppstd-specific)
+      - name: Compute Conan compiler settings
+        if: github.event.inputs.compiler == 'gcc-16' || github.event.inputs.compiler == 'clang-23'
+        id: toolchain
+        env:
+          INPUT_COMPILER: ${{ github.event.inputs.compiler }}
+        run: |
+          set -euo pipefail
+          case "$INPUT_COMPILER" in
+            gcc-16)
+              COMPILER=gcc
+              COMPILER_VERSION=16
+              LIBCXX=libstdc++11
+              ;;
+            clang-23)
+              COMPILER=clang
+              COMPILER_VERSION=23
+              if [ "$RUNNER_OS" = "macOS" ]; then
+                LIBCXX=libc++
+              else
+                LIBCXX=libstdc++11
+              fi
+              ;;
+            *)
+              echo "Unsupported compiler: $INPUT_COMPILER" >&2
+              exit 1
+              ;;
+          esac
+          echo "Using compiler=$COMPILER/$COMPILER_VERSION (libcxx=$LIBCXX)"
+          echo "compiler=$COMPILER" >> "$GITHUB_OUTPUT"
+          echo "compiler_version=$COMPILER_VERSION" >> "$GITHUB_OUTPUT"
+          echo "libcxx=$LIBCXX" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Conan packages (compiler-specific)
         uses: actions/cache@v4
         with:
           path: ${{ env.CONAN_HOME }}/p
-          key: try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.settings_mode }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/try-build.yml') }}
+          key: try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.compiler }}-${{ github.event.inputs.settings_mode }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/try-build.yml') }}
           restore-keys: |
-            try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.settings_mode }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-
+            try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.compiler }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-
 
       - name: Try build
         env:
           INPUT_PACKAGE: ${{ github.event.inputs.package }}
           INPUT_VERSION: ${{ github.event.inputs.version }}
           INPUT_CONANFILE: ${{ github.event.inputs.conanfile_path }}
+          INPUT_COMPILER: ${{ github.event.inputs.compiler }}
           INPUT_SETTINGS_MODE: ${{ github.event.inputs.settings_mode }}
           INPUT_USER_CHANNEL: ${{ github.event.inputs.user_channel }}
           INPUT_EXTRA_OPTIONS: ${{ github.event.inputs.extra_options }}
+          COMPILER: ${{ steps.toolchain.outputs.compiler }}
+          COMPILER_VERSION: ${{ steps.toolchain.outputs.compiler_version }}
+          LIBCXX: ${{ steps.toolchain.outputs.libcxx }}
         run: |
-          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --settings-mode "$INPUT_SETTINGS_MODE" --repository testing --no-upload)
-          if [ -n "$INPUT_USER_CHANNEL" ]; then
-            ARGS+=(--user-channel "$INPUT_USER_CHANNEL")
+          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --repository testing --no-upload)
+          if [ "$INPUT_COMPILER" = "gcc-16" ] || [ "$INPUT_COMPILER" = "clang-23" ]; then
+            # Custom toolchain: always build the local recipe under milvus/ci so
+            # a previously published @milvus/dev revision is never picked up.
+            ARGS+=(--settings-mode custom --compiler "$COMPILER" --compiler-version "$COMPILER_VERSION" --libcxx "$LIBCXX" --user-channel milvus/ci)
+          else
+            ARGS+=(--settings-mode "$INPUT_SETTINGS_MODE")
+            if [ -n "$INPUT_USER_CHANNEL" ]; then
+              ARGS+=(--user-channel "$INPUT_USER_CHANNEL")
+            fi
           fi
           if [ -n "$INPUT_EXTRA_OPTIONS" ]; then
             ARGS+=(--extra-options "$INPUT_EXTRA_OPTIONS")
