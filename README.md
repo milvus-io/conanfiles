@@ -125,8 +125,8 @@ The build always runs under a hardcoded `milvus/ci` user/channel (never publishe
 | `version` | Yes | Package version (e.g. `1.0.0-28a2b48`) |
 | `conanfile_path` | Yes | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
 | `runner` | Yes | GitHub-hosted runner: `ubuntu-22.04`, `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15` or `macos-26` |
-| `compiler` | Yes | Toolchain: `none` (runner native), `gcc-16` or `clang-23` (default: `none`) |
-| `settings_mode` | Yes | Conan settings mode, used when `compiler=none`: `runner-default` or `linux-gcc-11` (default: `runner-default`) |
+| `compiler` | Yes | Toolchain: `runner-native`, `gcc-16` or `clang-23` (default: `runner-native`) |
+| `settings_mode` | Yes | Conan settings mode, used when `compiler=runner-native`: `runner-default` or `linux-gcc-11` (default: `runner-default`) |
 | `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20`) |
 
 **Settings modes:**
@@ -162,7 +162,7 @@ When `compiler` is `gcc-16` or `clang-23`, the workflow installs the requested t
 | `version` | `1.0.0-28a2b48` |
 | `conanfile_path` | `all/conanfile.py` |
 | `runner` | `ubuntu-24.04-arm` |
-| `compiler` | `none` |
+| `compiler` | `runner-native` |
 | `settings_mode` | `runner-default` |
 | `extra_options` | `-s compiler.cppstd=20` |
 

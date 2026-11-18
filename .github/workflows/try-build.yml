@@ -1,6 +1,6 @@
 name: Try Build
 
-run-name: Try build ${{ inputs.package }}/${{ inputs.version }} on ${{ inputs.runner }}${{ inputs.compiler != 'none' && format(' ({0})', inputs.compiler) || '' }}
+run-name: Try build ${{ inputs.package }}/${{ inputs.version }} on ${{ inputs.runner }}${{ inputs.compiler != 'runner-native' && format(' ({0})', inputs.compiler) || '' }}
 
 on:
   workflow_dispatch:
@@ -27,16 +27,16 @@ on:
           - macos-26
         default: ubuntu-24.04-arm
       compiler:
-        description: 'compiler toolchain (none = runner native compiler)'
+        description: 'compiler toolchain (runner-native = runner native compiler)'
         required: true
         type: choice
         options:
-          - none
+          - runner-native
           - gcc-16
           - clang-23
-        default: none
+        default: runner-native
       settings_mode:
-        description: 'Conan settings mode (used when compiler=none)'
+        description: 'Conan settings mode (used when compiler=runner-native)'
         required: true
         type: choice
         options:
