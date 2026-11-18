@@ -32,7 +32,6 @@ on:
         type: choice
         options:
           - runner-native
-          - gcc-11
           - gcc-16
           - clang-23
         default: runner-native
@@ -186,12 +185,6 @@ jobs:
           ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --user-channel milvus/ci --repository testing --no-upload)
           if [ "$INPUT_COMPILER" = "gcc-16" ] || [ "$INPUT_COMPILER" = "clang-23" ]; then
             ARGS+=(--settings-mode custom --compiler "$COMPILER" --compiler-version "$COMPILER_VERSION" --libcxx "$LIBCXX")
-          elif [ "$INPUT_COMPILER" = "gcc-11" ]; then
-            if [ "$RUNNER_OS" != "Linux" ]; then
-              echo "compiler=gcc-11 is only supported on Linux runners" >&2
-              exit 1
-            fi
-            ARGS+=(--settings-mode linux-gcc-11)
           else
             ARGS+=(--settings-mode runner-default)
           fi
