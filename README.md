@@ -160,6 +160,8 @@ Builds a package from a local recipe without uploading anything to Artifactory. 
 
 Builds a package from a local recipe with a selected compiler toolchain (gcc-16 or clang-23) on a GitHub-hosted runner, without uploading anything to Artifactory. Used to validate recipes with newer compilers before adopting them. The workflow installs the requested toolchain (Homebrew on macOS, apt.llvm.org for clang-23 / Homebrew-on-Linux for gcc-16 on Ubuntu), then runs the build through `build-and-push.sh` with `--settings-mode custom`. It uses Conan 2.33.0, the first release whose bundled settings support both gcc 16 and clang 23.
 
+The build always runs under a hardcoded `milvus/ci` user/channel (never published), so `conan create` uses the **local recipe** instead of resolving a previously published `@milvus/dev` revision from the production remote.
+
 **Inputs:**
 
 | Input | Required | Description |
@@ -169,7 +171,6 @@ Builds a package from a local recipe with a selected compiler toolchain (gcc-16 
 | `conanfile_path` | Yes | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
 | `compiler` | Yes | Toolchain: `gcc-16` or `clang-23` |
 | `os` | Yes | GitHub-hosted runner OS: `ubuntu-24.04` or `macos-26` |
-| `user_channel` | No | User/channel for the package (e.g. `milvus/dev`) |
 | `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20`; e.g. `-o pkg:opt=val`) |
 
 **Supported toolchains:**
@@ -185,7 +186,7 @@ Builds a package from a local recipe with a selected compiler toolchain (gcc-16 
 |---|---|---|
 | Install Conan and dependencies | `python -m pip install conan==2.33.0 pyyaml` | Install Conan 2.33.0 (supports gcc 16 / clang 23 settings natively), pyyaml, and detect the runner profile |
 | Install toolchain | — | Installs the requested compiler for the selected OS |
-| Build with toolchain | `./scripts/build-and-push.sh --settings-mode custom --compiler ... --compiler-version ... --libcxx ... --repository testing --no-upload` | Builds the recipe with the selected compiler, skips upload |
+| Build with toolchain | `./scripts/build-and-push.sh --settings-mode custom --compiler ... --compiler-version ... --libcxx ... --user-channel milvus/ci --repository testing --no-upload` | Builds the local recipe with the selected compiler, skips upload |
 
 ## Scripts for Manual Publish
 

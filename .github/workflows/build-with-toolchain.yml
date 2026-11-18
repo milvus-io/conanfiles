@@ -4,7 +4,7 @@
 # build-and-push.sh with --settings-mode custom. Build-only validation: no upload.
 name: Build with Custom Toolchain
 
-run-name: Build ${{ inputs.package }}/${{ inputs.version }}${{ inputs.user_channel && format('@{0}', inputs.user_channel) || '' }} with ${{ inputs.compiler }} on ${{ inputs.os }}
+run-name: Build ${{ inputs.package }}/${{ inputs.version }} with ${{ inputs.compiler }} on ${{ inputs.os }}
 
 on:
   workflow_dispatch:
@@ -35,10 +35,6 @@ on:
           - ubuntu-24.04
           - macos-26
         default: ubuntu-24.04
-      user_channel:
-        description: 'define the user and channel for the package'
-        required: false
-        default: ''
       extra_options:
         description: 'extra conan options (e.g. -s compiler.cppstd=20 -o pkg:opt=val -c conf=val)'
         required: false
@@ -172,16 +168,15 @@ jobs:
           INPUT_PACKAGE: ${{ inputs.package }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_CONANFILE: ${{ inputs.conanfile_path }}
-          INPUT_USER_CHANNEL: ${{ inputs.user_channel }}
           INPUT_EXTRA_OPTIONS: ${{ inputs.extra_options }}
           COMPILER: ${{ steps.toolchain.outputs.compiler }}
           COMPILER_VERSION: ${{ steps.toolchain.outputs.compiler_version }}
           LIBCXX: ${{ steps.toolchain.outputs.libcxx }}
         run: |
-          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --settings-mode custom --compiler "$COMPILER" --compiler-version "$COMPILER_VERSION" --libcxx "$LIBCXX" --repository testing --no-upload)
-          if [ -n "$INPUT_USER_CHANNEL" ]; then
-            ARGS+=(--user-channel "$INPUT_USER_CHANNEL")
-          fi
+          # Hardcode a dedicated user/channel that is never published, so
+          # `conan create` always builds the local recipe instead of resolving a
+          # previously published @milvus/dev revision from the production remote.
+          ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --settings-mode custom --compiler "$COMPILER" --compiler-version "$COMPILER_VERSION" --libcxx "$LIBCXX" --user-channel milvus/ci --repository testing --no-upload)
           if [ -n "$INPUT_EXTRA_OPTIONS" ]; then
             ARGS+=(--extra-options "$INPUT_EXTRA_OPTIONS")
           fi
