@@ -125,15 +125,14 @@ The build always runs under a hardcoded `milvus/ci` user/channel (never publishe
 | `version` | Yes | Package version (e.g. `1.0.0-28a2b48`) |
 | `conanfile_path` | Yes | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
 | `runner` | Yes | GitHub-hosted runner: `ubuntu-22.04`, `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15` or `macos-26` |
-| `compiler` | Yes | Toolchain: `runner-native`, `gcc-11`, `gcc-16` or `clang-23` (default: `runner-native`) |
+| `compiler` | Yes | Toolchain: `runner-native`, `gcc-16` or `clang-23` (default: `runner-native`) |
 | `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20`) |
 
 **Compiler options:**
 
 | Compiler | Behavior |
 |---|---|
-| `runner-native` | Uses `conan profile detect` from the selected runner for compiler/compiler version/libcxx. Recommended for `ubuntu-24.04-arm` and `macos-15`; add `-s compiler.cppstd=<std>` in `extra_options` when a recipe needs a different C++ standard. |
-| `gcc-11` | Linux only: GCC 11, libstdc++11, matching the repo's existing production settings. |
+| `runner-native` | Uses `conan profile detect` from the selected runner for compiler/compiler version/libcxx. Recommended for `ubuntu-24.04-arm` and `macos-15`; add `-s compiler.cppstd=<std>` in `extra_options` when a recipe needs a different C++ standard. On `ubuntu-22.04` this is gcc-11, matching the repo's production settings. |
 | `gcc-16` / `clang-23` | Installs the requested toolchain and uses Conan 2.33.0 (the first release whose bundled settings support both gcc 16 and clang 23). |
 
 **Custom toolchains:**
