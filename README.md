@@ -170,7 +170,7 @@ Builds a package from a local recipe with a selected compiler toolchain (gcc-16 
 | `compiler` | Yes | Toolchain: `gcc-16` or `clang-23` |
 | `os` | Yes | GitHub-hosted runner OS: `ubuntu-24.04` or `macos-26` |
 | `user_channel` | No | User/channel for the package (e.g. `milvus/dev`) |
-| `extra_options` | No | Extra conan options (e.g. `-s compiler.cppstd=20 -o pkg:opt=val`) |
+| `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20`; e.g. `-o pkg:opt=val`) |
 
 **Supported toolchains:**
 
