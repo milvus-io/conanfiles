@@ -121,6 +121,10 @@ jobs:
               mkdir -p "$BIN_DIR"
               ln -sf "$(brew --prefix gcc@16)/bin/gcc-16" "$BIN_DIR/gcc"
               ln -sf "$(brew --prefix gcc@16)/bin/g++-16" "$BIN_DIR/g++"
+              # gcc-16 emits .base64 pseudo-ops that need binutils >= 2.43; the
+              # runner's system as is 2.42, so prefer the binutils bundled with
+              # Homebrew gcc (gcc@16 depends on binutils 2.47).
+              echo "$(brew --prefix binutils)/bin" >> "$GITHUB_PATH"
               echo "$BIN_DIR" >> "$GITHUB_PATH"
               ;;
             *)

@@ -87,7 +87,13 @@ class FollyConan(ConanFile):
         if self.settings.os == "Linux":
             self.requires("liburing/2.15", transitive_headers=True, transitive_libs=True)
         # INFO: Folly does not support fmt 11 on MSVC: https://github.com/facebook/folly/issues/2250
-        self.requires("fmt/10.2.1", transitive_headers=True, transitive_libs=True)
+        if is_msvc(self):
+            self.requires("fmt/10.2.1", transitive_headers=True, transitive_libs=True)
+        else:
+            # fmt 10's consteval compile-time format strings (FMT_COMPILE_STRING)
+            # fail under newer clang (clang-23: "call to consteval function ... is
+            # not a constant expression" in folly/fibers/detail/AtomicBatchDispatcher).
+            self.requires("fmt/11.2.0", transitive_headers=True, transitive_libs=True)
 
     def build_requirements(self):
         # INFO: Required due ZIP_LISTS CMake feature in conan_deps.cmake
