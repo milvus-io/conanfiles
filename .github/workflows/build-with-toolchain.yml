@@ -41,9 +41,9 @@ on:
         required: false
         default: ''
       extra_options:
-        description: 'extra conan options (e.g. -o pkg:opt=val -c conf=val)'
+        description: 'extra conan options (e.g. -s compiler.cppstd=20 -o pkg:opt=val -c conf=val)'
         required: false
-        default: ''
+        default: '-s compiler.cppstd=20 -s:b compiler.cppstd=20'
 
 jobs:
   build-with-toolchain:
