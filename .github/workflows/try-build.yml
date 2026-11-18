@@ -27,22 +27,15 @@ on:
           - macos-26
         default: ubuntu-24.04-arm
       compiler:
-        description: 'compiler toolchain (runner-native = runner native compiler)'
+        description: 'compiler toolchain (runner-native = runner default compiler)'
         required: true
         type: choice
         options:
           - runner-native
+          - gcc-11
           - gcc-16
           - clang-23
         default: runner-native
-      settings_mode:
-        description: 'Conan settings mode (used when compiler=runner-native)'
-        required: true
-        type: choice
-        options:
-          - runner-default
-          - linux-gcc-11
-        default: runner-default
       extra_options:
         description: 'extra conan options (e.g. -s compiler.cppstd=20 -o pkg:opt=val -c conf=val)'
         required: false
@@ -173,7 +166,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CONAN_HOME }}/p
-          key: try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.compiler }}-${{ github.event.inputs.settings_mode }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/try-build.yml') }}
+          key: try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.compiler }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-${{ hashFiles('recipes/**/conanfile.py', 'recipes/**/conandata.yml', 'recipes/**/config.yml', 'scripts/build-and-push.sh', '.github/workflows/try-build.yml') }}
           restore-keys: |
             try-build-${{ github.event.inputs.runner }}-${{ github.event.inputs.compiler }}-cppstd-${{ steps.cppstd.outputs.cppstd }}-
 
@@ -183,7 +176,6 @@ jobs:
           INPUT_VERSION: ${{ github.event.inputs.version }}
           INPUT_CONANFILE: ${{ github.event.inputs.conanfile_path }}
           INPUT_COMPILER: ${{ github.event.inputs.compiler }}
-          INPUT_SETTINGS_MODE: ${{ github.event.inputs.settings_mode }}
           INPUT_EXTRA_OPTIONS: ${{ github.event.inputs.extra_options }}
           COMPILER: ${{ steps.toolchain.outputs.compiler }}
           COMPILER_VERSION: ${{ steps.toolchain.outputs.compiler_version }}
@@ -194,8 +186,14 @@ jobs:
           ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --user-channel milvus/ci --repository testing --no-upload)
           if [ "$INPUT_COMPILER" = "gcc-16" ] || [ "$INPUT_COMPILER" = "clang-23" ]; then
             ARGS+=(--settings-mode custom --compiler "$COMPILER" --compiler-version "$COMPILER_VERSION" --libcxx "$LIBCXX")
+          elif [ "$INPUT_COMPILER" = "gcc-11" ]; then
+            if [ "$RUNNER_OS" != "Linux" ]; then
+              echo "compiler=gcc-11 is only supported on Linux runners" >&2
+              exit 1
+            fi
+            ARGS+=(--settings-mode linux-gcc-11)
           else
-            ARGS+=(--settings-mode "$INPUT_SETTINGS_MODE")
+            ARGS+=(--settings-mode runner-default)
           fi
           if [ -n "$INPUT_EXTRA_OPTIONS" ]; then
             ARGS+=(--extra-options "$INPUT_EXTRA_OPTIONS")
