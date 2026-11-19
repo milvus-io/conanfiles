@@ -121,6 +121,15 @@ class CyrusSaslConan(ConanFile):
             env.generate(scope="build")
 
         tc = AutotoolsToolchain(self)
+        # gcc-16 (and newer) default to -std=c23. In C23, `void f();` declares a
+        # function taking no arguments (N2841), whereas pre-C23 it meant "unspecified
+        # args". The bundled RSA MD5 reference code (lib/md5.c, saslauthd/md5.c) is
+        # K&R style: md5global.h defaults PROTOTYPES=0, so PROTO_LIST(list) expands
+        # to `()`, turning e.g. `static void MD5_memcpy ();` into a zero-arg prototype
+        # and failing with "too many arguments to function ... expected 0, have 3".
+        # Pin the C standard to gnu17 so `()` keeps its pre-C23 meaning. gcc-11
+        # already defaults to gnu17, so this is a no-op for existing builds.
+        tc.extra_cflags.append("-std=gnu17")
         yes_no = lambda v: "yes" if v else "no"
         rootpath_no = lambda v, req: unix_path(self, self.dependencies[req].package_folder) if v else "no"
         tc.configure_args.extend([
