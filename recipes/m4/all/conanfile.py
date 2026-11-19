@@ -68,9 +68,19 @@ class M4Conan(ConanFile):
                 "-rtlib=compiler-rt",
                 "-Wno-unused-command-line-argument",
             ])
-        elif self.version == "1.4.19" and self.settings.compiler == "gcc" and self.settings.compiler.version >= Version(15):
+        elif self.version == "1.4.19" and self.settings.compiler == "gcc":
             # FIXME: https://savannah.gnu.org/support/?func=detailitem&item_id=111150
             # WORKAROUND: https://lists.buildroot.org/pipermail/buildroot/2025-May/777741.html
+            #
+            # Pin the C standard to gnu17 for all gcc versions. gcc-11..14 already
+            # default to gnu17 (no-op); gcc-15+ default to gnu23 and break the
+            # bundled gnulib (_GL_ATTRIBUTE_NODISCARD becomes [[nodiscard]]).
+            #
+            # NOTE: m4 is consumed as a build-context tool_require, so it builds
+            # with the default (detected) profile compiler, not the try-build
+            # compiler override. On ubuntu-24.04 that is gcc-13 while the PATH
+            # compiler is gcc-16, so a `compiler.version >= 15` gate here would
+            # silently miss the C23 breakage. gnu17 is safe for every gcc.
             tc.extra_cflags.append("-std=gnu17")
 
         if cross_building(self) and is_msvc(self):
