@@ -1,0 +1,44 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -121,8 +121,12 @@
+ # }
+ 
+ # SASL {
++option(WITH_SASL_CYRUS "With Cyrus SASL (libsasl2) for GSSAPI/Kerberos (non-Windows)" ON)
+ if(WIN32)
+   set(with_sasl_default ON)
++elseif(NOT WITH_SASL_CYRUS)
++  # PLAIN, SCRAM and OAUTHBEARER do not need libsasl2
++  set(with_sasl_default ON)
+ else()
+   if(PkgConfig_FOUND)
+     pkg_check_modules(SASL libsasl2)
+@@ -154,10 +158,13 @@
+     set(WITH_SASL_OAUTHBEARER ON)
+     list(APPEND BUILT_WITH "SASL_SCRAM SASL_OAUTHBEARER")
+   endif()
+-  if(NOT WIN32)
+-    set(WITH_SASL_CYRUS ON)
++  if(NOT WIN32 AND WITH_SASL_CYRUS)
+     list(APPEND BUILT_WITH "SASL_CYRUS")
++  else()
++    set(WITH_SASL_CYRUS OFF)
+   endif()
++else()
++  set(WITH_SASL_CYRUS OFF)
+ endif()
+ # }
+ 
+diff --git a/src/rdkafka_conf.c b/src/rdkafka_conf.c
+--- a/src/rdkafka_conf.c
++++ b/src/rdkafka_conf.c
+@@ -208,7 +208,7 @@
+ #define _UNSUPPORTED_WIN32_GSSAPI .unsupported = NULL
+ #endif
+ 
+-#if defined(_WIN32) || defined(WITH_SASL_CYRUS)
++#if defined(_WIN32) || WITH_SASL_CYRUS
+ #define _UNSUPPORTED_GSSAPI .unsupported = NULL
+ #else
+ #define _UNSUPPORTED_GSSAPI                                                    \

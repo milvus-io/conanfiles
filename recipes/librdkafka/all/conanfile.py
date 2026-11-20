@@ -29,6 +29,7 @@ class LibrdkafkaConan(ConanFile):
         "plugins": [True, False],
         "ssl": [True, False],
         "sasl": [True, False],
+        "sasl_cyrus": [True, False],
         "curl": [True, False],
     }
     default_options = {
@@ -39,12 +40,13 @@ class LibrdkafkaConan(ConanFile):
         "plugins": False,
         "ssl": False,
         "sasl": False,
+        "sasl_cyrus": True,
         "curl": False,
     }
 
     @property
     def _depends_on_cyrus_sasl(self):
-        return self.options.sasl and self.settings.os != "Windows"
+        return self.options.sasl and self.options.get_safe("sasl_cyrus", True) and self.settings.os != "Windows"
 
     def export_sources(self):
         export_conandata_patches(self)
@@ -52,6 +54,11 @@ class LibrdkafkaConan(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
+            # Windows uses native SSPI for GSSAPI, never Cyrus SASL
+            del self.options.sasl_cyrus
+        elif Version(self.version) < "2.6.1":
+            # the WITH_SASL_CYRUS CMake option is only patched in for 2.6.1+
+            del self.options.sasl_cyrus
         if Version(self.version) < "1.9.0":
             del self.options.curl
 
@@ -99,6 +106,9 @@ class LibrdkafkaConan(ConanFile):
         tc.variables["WITH_PLUGINS"] = self.options.plugins
         tc.variables["WITH_SSL"] = self.options.ssl
         tc.variables["WITH_SASL"] = self.options.sasl
+        if self.options.get_safe("sasl_cyrus") is not None:
+            # When False, keep PLAIN, SCRAM and OAUTHBEARER but drop Cyrus SASL (GSSAPI/Kerberos)
+            tc.variables["WITH_SASL_CYRUS"] = self.options.sasl_cyrus
         tc.variables["ENABLE_LZ4_EXT"] = True
         if Version(self.version) >= "1.9.0":
             tc.variables["WITH_CURL"] = self.options.curl
