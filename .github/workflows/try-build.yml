@@ -35,6 +35,14 @@ on:
           - gcc-16
           - clang-23
         default: runner-native
+      source:
+        description: 'recipe source: conanfiles = local recipes, conancenter = build a ConanCenter package'
+        required: true
+        type: choice
+        options:
+          - conanfiles
+          - conancenter
+        default: conanfiles
       extra_options:
         description: 'extra conan options (e.g. -s compiler.cppstd=20 -o pkg:opt=val -c conf=val)'
         required: false
@@ -179,11 +187,28 @@ jobs:
           INPUT_VERSION: ${{ github.event.inputs.version }}
           INPUT_CONANFILE: ${{ github.event.inputs.conanfile_path }}
           INPUT_COMPILER: ${{ github.event.inputs.compiler }}
+          INPUT_SOURCE: ${{ github.event.inputs.source }}
           INPUT_EXTRA_OPTIONS: ${{ github.event.inputs.extra_options }}
           COMPILER: ${{ steps.toolchain.outputs.compiler }}
           COMPILER_VERSION: ${{ steps.toolchain.outputs.compiler_version }}
           LIBCXX: ${{ steps.toolchain.outputs.libcxx }}
         run: |
+          if [ "$INPUT_SOURCE" = "conancenter" ]; then
+            # Build a ConanCenter package (no local recipe): resolve the recipe
+            # from ConanCenter and build its binaries with the selected compiler.
+            conan remote add default-conan-local2 "https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local2" --index 0 2>/dev/null || true
+            conan remote add testing2 "https://milvus01.jfrog.io/artifactory/api/conan/testing2" --index 1 2>/dev/null || true
+            SETTINGS=(-s build_type=Release -s compiler.cppstd=20 -s:b compiler.cppstd=20)
+            if [ "$INPUT_COMPILER" = "gcc-16" ] || [ "$INPUT_COMPILER" = "clang-23" ]; then
+              SETTINGS+=(-s compiler="$COMPILER" -s compiler.version="$COMPILER_VERSION" -s compiler.libcxx="$LIBCXX")
+            fi
+            EXTRA=()
+            if [ -n "$INPUT_EXTRA_OPTIONS" ]; then
+              EXTRA+=($INPUT_EXTRA_OPTIONS)
+            fi
+            conan install --requires="$INPUT_PACKAGE/$INPUT_VERSION" --build=missing "${SETTINGS[@]}" -c tools.build:jobs=6 "${EXTRA[@]}"
+            exit $?
+          fi
           # Hardcoded milvus/ci channel (never published) so `conan create` always
           # builds the local recipe instead of a published @milvus/dev revision.
           ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --user-channel milvus/ci --repository testing --no-upload)
