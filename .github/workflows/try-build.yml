@@ -113,6 +113,11 @@ jobs:
             macOS/clang)
               brew install "llvm@$COMPILER_VERSION"
               echo "$(brew --prefix "llvm@$COMPILER_VERSION")/bin" >> "$GITHUB_PATH"
+              # Export the macOS SDK so compilers invoked without an explicit
+              # -isysroot (e.g. Boost.Build/b2, raw autotools) can still find
+              # the system headers. Old clang (e.g. 15.0.7) cannot auto-detect
+              # very new SDKs and otherwise fails with "unistd.h not found".
+              echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
               ;;
             macOS/gcc)
               brew install "gcc@$COMPILER_VERSION"
@@ -120,6 +125,8 @@ jobs:
               ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
               ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
               echo "$BIN_DIR" >> "$GITHUB_PATH"
+              # Same rationale as macOS/clang: let gcc reach the SDK headers.
+              echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
               ;;
             Linux/clang)
               wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
