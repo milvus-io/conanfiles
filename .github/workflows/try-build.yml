@@ -131,17 +131,32 @@ jobs:
               echo "$BIN_DIR" >> "$GITHUB_PATH"
               ;;
             Linux/gcc)
-              NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-              brew install "gcc@$COMPILER_VERSION"
-              mkdir -p "$BIN_DIR"
-              ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
-              ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
-              # Newer GCC emits .base64 pseudo-ops that need binutils >= 2.43;
-              # the runner's system as is older, so prefer the binutils bundled
-              # with Homebrew gcc.
-              echo "$(brew --prefix binutils)/bin" >> "$GITHUB_PATH"
-              echo "$BIN_DIR" >> "$GITHUB_PATH"
+              # Prefer the distro's gcc when it provides this version. Homebrew
+              # gcc@N on Linux pulls in Homebrew's own glibc (e.g. 2.39) whose
+              # headers leak into the build and mismatch the system libc
+              # (ubuntu-22.04 glibc 2.35), breaking configure detection
+              # (strlcat/strlcpy=yes) and links of C23-redirected symbols
+              # (__isoc23_strtol) against the older system libc.
+              if sudo apt-get install -y --no-install-recommends "gcc-$COMPILER_VERSION" "g++-$COMPILER_VERSION"; then
+                mkdir -p "$BIN_DIR"
+                ln -sf "/usr/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
+                ln -sf "/usr/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
+                echo "$BIN_DIR" >> "$GITHUB_PATH"
+              else
+                # Fall back to Homebrew for versions not packaged by the distro
+                # (e.g. gcc-15/16 on ubuntu-22.04/24.04).
+                NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+                brew install "gcc@$COMPILER_VERSION"
+                mkdir -p "$BIN_DIR"
+                ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
+                ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
+                # Newer GCC emits .base64 pseudo-ops that need binutils >= 2.43;
+                # the runner's system as is older, so prefer the binutils bundled
+                # with Homebrew gcc.
+                echo "$(brew --prefix binutils)/bin" >> "$GITHUB_PATH"
+                echo "$BIN_DIR" >> "$GITHUB_PATH"
+              fi
               ;;
             *)
               echo "Unsupported OS/compiler combination: $RUNNER_OS/$INPUT_COMPILER" >&2
