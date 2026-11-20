@@ -40,6 +40,9 @@ patches:
     - patch_file: patches/0002-Change-library-targets-and-result-variables-2-6-1.patch
       patch_description: "refer conan package names"
       patch_type: "conan"
+    - patch_file: patches/0003-Add-WITH_SASL_CYRUS-option-2-6-1.patch
+      patch_description: "add WITH_SASL_CYRUS option to build SASL without Cyrus SASL"
+      patch_type: "conan"
   "2.2.0":
     - patch_file: patches/0001-Change-library-names-1-9-1.patch
       patch_description: "find_package conan packages"
