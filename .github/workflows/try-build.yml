@@ -38,7 +38,7 @@ on:
       extra_options:
         description: 'extra conan options (e.g. -s compiler.cppstd=20 -o pkg:opt=val -c conf=val)'
         required: false
-        default: '-s compiler.cppstd=20 -s:b compiler.cppstd=20'
+        default: '-s compiler.cppstd=20 -s:b compiler.cppstd=20 -c tools.system.package_manager:mode=install'
 
 jobs:
   try-build:

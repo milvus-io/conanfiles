@@ -126,7 +126,7 @@ The build always runs under a hardcoded `milvus/ci` user/channel (never publishe
 | `conanfile_path` | Yes | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
 | `runner` | Yes | GitHub-hosted runner: `ubuntu-22.04`, `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15` or `macos-26` |
 | `compiler` | Yes | Toolchain: `runner-native`, `gcc-16` or `clang-23` (default: `runner-native`) |
-| `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20`) |
+| `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20 -c tools.system.package_manager:mode=install`) |
 
 **Compiler options:**
 
@@ -159,7 +159,7 @@ The build always runs under a hardcoded `milvus/ci` user/channel (never publishe
 | `conanfile_path` | `all/conanfile.py` |
 | `runner` | `ubuntu-24.04-arm` |
 | `compiler` | `runner-native` |
-| `extra_options` | `-s compiler.cppstd=20` |
+| `extra_options` | `-s compiler.cppstd=20 -s:b compiler.cppstd=20 -c tools.system.package_manager:mode=install` |
 
 ## Scripts for Manual Publish
 
