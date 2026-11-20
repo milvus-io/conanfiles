@@ -32,7 +32,15 @@ on:
         type: choice
         options:
           - runner-native
+          - gcc-12
+          - gcc-13
+          - gcc-14
+          - gcc-15
           - gcc-16
+          - clang-15
+          - clang-17
+          - clang-19
+          - clang-21
           - clang-23
         default: runner-native
       source:
@@ -64,12 +72,10 @@ jobs:
       - name: Install Conan and dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ "${{ github.event.inputs.compiler }}" = "gcc-16" ] || [ "${{ github.event.inputs.compiler }}" = "clang-23" ]; then
-            # First Conan release whose bundled settings support gcc 16 and clang 23.
-            python -m pip install conan==2.33.0 pyyaml
-          else
-            python -m pip install conan==2.25.1 pyyaml
-          fi
+          # Conan 2.33.0: first release whose bundled settings support gcc 16 and
+          # clang 23; its settings cover every gcc/clang version exposed by the
+          # compiler input (gcc 12-16, clang 15-23).
+          python -m pip install conan==2.33.0 pyyaml
           conan --version
           conan profile detect
 
@@ -95,43 +101,45 @@ jobs:
           echo "cppstd=$cppstd" >> "$GITHUB_OUTPUT"
 
       - name: Install toolchain
-        if: github.event.inputs.compiler == 'gcc-16' || github.event.inputs.compiler == 'clang-23'
+        if: github.event.inputs.compiler != 'runner-native'
         env:
           INPUT_COMPILER: ${{ github.event.inputs.compiler }}
         run: |
           set -euo pipefail
+          COMPILER_TYPE=${INPUT_COMPILER%%-*}      # gcc or clang
+          COMPILER_VERSION=${INPUT_COMPILER##*-}  # e.g. 12, 16, 23
           BIN_DIR="$RUNNER_TEMP/toolchain-bin"
-          case "$RUNNER_OS/$INPUT_COMPILER" in
-            macOS/clang-23)
-              brew install llvm@23
-              echo "$(brew --prefix llvm@23)/bin" >> "$GITHUB_PATH"
+          case "$RUNNER_OS/$COMPILER_TYPE" in
+            macOS/clang)
+              brew install "llvm@$COMPILER_VERSION"
+              echo "$(brew --prefix "llvm@$COMPILER_VERSION")/bin" >> "$GITHUB_PATH"
               ;;
-            macOS/gcc-16)
-              brew install gcc@16
+            macOS/gcc)
+              brew install "gcc@$COMPILER_VERSION"
               mkdir -p "$BIN_DIR"
-              ln -sf "$(brew --prefix gcc@16)/bin/gcc-16" "$BIN_DIR/gcc"
-              ln -sf "$(brew --prefix gcc@16)/bin/g++-16" "$BIN_DIR/g++"
+              ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
+              ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
               echo "$BIN_DIR" >> "$GITHUB_PATH"
               ;;
-            Linux/clang-23)
+            Linux/clang)
               wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
               chmod +x /tmp/llvm.sh
-              sudo /tmp/llvm.sh 23
+              sudo /tmp/llvm.sh "$COMPILER_VERSION"
               mkdir -p "$BIN_DIR"
-              ln -sf /usr/bin/clang-23 "$BIN_DIR/clang"
-              ln -sf /usr/bin/clang++-23 "$BIN_DIR/clang++"
+              ln -sf "/usr/bin/clang-$COMPILER_VERSION" "$BIN_DIR/clang"
+              ln -sf "/usr/bin/clang++-$COMPILER_VERSION" "$BIN_DIR/clang++"
               echo "$BIN_DIR" >> "$GITHUB_PATH"
               ;;
-            Linux/gcc-16)
+            Linux/gcc)
               NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
               eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-              brew install gcc@16
+              brew install "gcc@$COMPILER_VERSION"
               mkdir -p "$BIN_DIR"
-              ln -sf "$(brew --prefix gcc@16)/bin/gcc-16" "$BIN_DIR/gcc"
-              ln -sf "$(brew --prefix gcc@16)/bin/g++-16" "$BIN_DIR/g++"
-              # gcc-16 emits .base64 pseudo-ops that need binutils >= 2.43; the
-              # runner's system as is 2.42, so prefer the binutils bundled with
-              # Homebrew gcc (gcc@16 depends on binutils 2.47).
+              ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
+              ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
+              # Newer GCC emits .base64 pseudo-ops that need binutils >= 2.43;
+              # the runner's system as is older, so prefer the binutils bundled
+              # with Homebrew gcc.
               echo "$(brew --prefix binutils)/bin" >> "$GITHUB_PATH"
               echo "$BIN_DIR" >> "$GITHUB_PATH"
               ;;
@@ -142,21 +150,21 @@ jobs:
           esac
 
       - name: Compute Conan compiler settings
-        if: github.event.inputs.compiler == 'gcc-16' || github.event.inputs.compiler == 'clang-23'
+        if: github.event.inputs.compiler != 'runner-native'
         id: toolchain
         env:
           INPUT_COMPILER: ${{ github.event.inputs.compiler }}
         run: |
           set -euo pipefail
-          case "$INPUT_COMPILER" in
-            gcc-16)
+          COMPILER_TYPE=${INPUT_COMPILER%%-*}
+          COMPILER_VERSION=${INPUT_COMPILER##*-}
+          case "$COMPILER_TYPE" in
+            gcc)
               COMPILER=gcc
-              COMPILER_VERSION=16
               LIBCXX=libstdc++11
               ;;
-            clang-23)
+            clang)
               COMPILER=clang
-              COMPILER_VERSION=23
               if [ "$RUNNER_OS" = "macOS" ]; then
                 LIBCXX=libc++
               else
@@ -199,7 +207,7 @@ jobs:
             conan remote add default-conan-local2 "https://milvus01.jfrog.io/artifactory/api/conan/default-conan-local2" --index 0 2>/dev/null || true
             conan remote add testing2 "https://milvus01.jfrog.io/artifactory/api/conan/testing2" --index 1 2>/dev/null || true
             SETTINGS=(-s build_type=Release -s compiler.cppstd=20 -s:b compiler.cppstd=20)
-            if [ "$INPUT_COMPILER" = "gcc-16" ] || [ "$INPUT_COMPILER" = "clang-23" ]; then
+            if [ "$INPUT_COMPILER" != "runner-native" ]; then
               SETTINGS+=(-s compiler="$COMPILER" -s compiler.version="$COMPILER_VERSION" -s compiler.libcxx="$LIBCXX")
             fi
             EXTRA=()
@@ -212,7 +220,7 @@ jobs:
           # Hardcoded milvus/ci channel (never published) so `conan create` always
           # builds the local recipe instead of a published @milvus/dev revision.
           ARGS=("$INPUT_PACKAGE" "$INPUT_VERSION" --conanfile "$INPUT_CONANFILE" --user-channel milvus/ci --repository testing --no-upload)
-          if [ "$INPUT_COMPILER" = "gcc-16" ] || [ "$INPUT_COMPILER" = "clang-23" ]; then
+          if [ "$INPUT_COMPILER" != "runner-native" ]; then
             ARGS+=(--settings-mode custom --compiler "$COMPILER" --compiler-version "$COMPILER_VERSION" --libcxx "$LIBCXX")
           else
             ARGS+=(--settings-mode runner-default)
