@@ -246,6 +246,10 @@ for ver, info in (data.get('versions') or {}).items():
         recipe="$pkg_dir/$folder/conanfile.py"
         if [ -f "$recipe" ]; then
             conan export "$recipe" --name="$pkg_name" --version="$ver"
+            # Also export under milvus/dev so transitive @milvus/dev requirements
+            # (e.g. arrow -> aws-sdk-cpp@milvus/dev) resolve from the local current
+            # recipes instead of stale published revisions on the production remote.
+            conan export "$recipe" --name="$pkg_name" --version="$ver" --user=milvus --channel=dev
         fi
     done
 done
