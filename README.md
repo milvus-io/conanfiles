@@ -126,7 +126,15 @@ The build always runs under a hardcoded `milvus/ci` user/channel (never publishe
 | `conanfile_path` | Yes | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
 | `runner` | Yes | GitHub-hosted runner: `ubuntu-22.04`, `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15` or `macos-26` |
 | `compiler` | Yes | Toolchain: `runner-native`, `gcc-16` or `clang-23` (default: `runner-native`) |
+| `source` | Yes | Recipe source: `conanfiles` (local recipes, default) or `conancenter` (build a ConanCenter package directly) |
 | `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20 -c tools.system.package_manager:mode=install`) |
+
+**Recipe sources:**
+
+| Source | Behavior |
+|---|---|
+| `conanfiles` | Builds the local recipe at `recipes/<package>/<conanfile_path>` via `build-and-push.sh` (milvus/ci channel, no upload). |
+| `conancenter` | Resolves the recipe from ConanCenter and builds it with the selected compiler via `conan install --requires=<package>/<version> --build=missing`. Used to validate packages that have no conanfiles recipe (e.g. metis, liburing, catch2, hdf5, icu, openblas). |
 
 **Compiler options:**
 
