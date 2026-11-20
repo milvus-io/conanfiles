@@ -467,6 +467,25 @@ class OpenTelemetryCppConan(ConanFile):
             self.cpp_info.components[lib].builddirs.append(self._module_subfolder)
             self.cpp_info.components[lib].set_property("cmake_build_modules", self._otel_build_modules)
 
+        # Header-only "api" component carrying the ABI defines the library was
+        # built with (mirrors conan-center-index). Consumers must see the same
+        # OPENTELEMETRY_STL_VERSION as the library: when WITH_STL is enabled the
+        # library compiles with OPENTELEMETRY_STL_VERSION (e.g. 2020 for C++20),
+        # which switches opentelemetry::nostd::{string_view,span,shared_ptr,
+        # unique_ptr,variant} to their std:: aliases. Without the define,
+        # consumers resolve those aliases to the ABI-incompatible fallback
+        # types and crash at virtual call boundaries (e.g. InstrumentationScope
+        # construction or SimpleSpanProcessor::OnEnd -> Export).
+        self.cpp_info.components["api"].libs = []
+        self.cpp_info.components["api"].defines.append("OPENTELEMETRY_ABI_VERSION_NO=1")
+        self.cpp_info.components["opentelemetry_common"].requires.append("api")
+
+        if self.options.with_stl:
+            stl_num = str(self._stl_value).replace("CXX", "")
+            self.cpp_info.components["api"].defines.append(
+                f"OPENTELEMETRY_STL_VERSION=20{stl_num}"
+            )
+
         self.cpp_info.components["opentelemetry_resources"].requires.extend([
             "opentelemetry_common",
         ])
