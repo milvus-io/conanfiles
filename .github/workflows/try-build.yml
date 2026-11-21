@@ -42,6 +42,7 @@ on:
           - clang-17
           - clang-19
           - clang-21
+          - clang-22
           - clang-23
         default: runner-native
       source:
