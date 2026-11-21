@@ -261,6 +261,22 @@ class ArrowConan(ConanFile):
             if self.dependencies["jemalloc"].options.enable_cxx:
                 raise ConanInvalidConfiguration("jemmalloc.enable_cxx of a static jemalloc must be disabled")
 
+        # Known boundary: with_boost resolves to boost/1.85.0 (conancenter), which
+        # cannot build against the macOS 15 SDK with clang <= 16 — clang-15:
+        # <memory_resource> is missing from libc++ 15; clang-16: the dirent.h
+        # `dirfd` macro expands to a GNU statement expression that breaks
+        # boost/filesystem directory.cpp. clang-17+ (macos-26) is clean. Declared
+        # as a boundary instead of leaving a confusing build failure so the
+        # try-build matrix reports it as expected.
+        if (self.options.with_boost and self.settings.os == "Macos"
+                and str(self.settings.compiler) == "clang"
+                and Version(self.settings.compiler.version) <= "16"):
+            raise ConanInvalidConfiguration(
+                f"{self.ref} cannot build on macOS with clang <= 16: the boost/1.85.0 "
+                "dependency fails against the macOS 15 SDK (clang-15: <memory_resource> "
+                "missing; clang-16: dirent.h dirfd macro). Use clang-17+ (macos-26)."
+            )
+
 
     def build_requirements(self):
         if Version(self.version) >= "13.0.0":
