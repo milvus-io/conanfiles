@@ -187,6 +187,25 @@ jobs:
               ;;
           esac
 
+      - name: Export CC/CXX for custom toolchains
+        if: github.event.inputs.compiler != 'runner-native'
+        env:
+          INPUT_COMPILER: ${{ github.event.inputs.compiler }}
+        run: |
+          set -euo pipefail
+          # Force CC/CXX so build systems that probe the environment (e.g. ICU's
+          # autotools configure, which prefers a preinstalled clang when CC is
+          # unset) honor the requested toolchain instead of drifting to a
+          # different compiler whose headers mismatch the Conan settings.
+          COMPILER_TYPE=${INPUT_COMPILER%%-*}
+          if [ "$COMPILER_TYPE" = "gcc" ]; then
+            echo "CC=gcc" >> "$GITHUB_ENV"
+            echo "CXX=g++" >> "$GITHUB_ENV"
+          else
+            echo "CC=clang" >> "$GITHUB_ENV"
+            echo "CXX=clang++" >> "$GITHUB_ENV"
+          fi
+
       - name: Compute Conan compiler settings
         if: github.event.inputs.compiler != 'runner-native'
         id: toolchain
