@@ -32,6 +32,7 @@ on:
         type: choice
         options:
           - runner-native
+          - gcc-11
           - gcc-12
           - gcc-13
           - gcc-14

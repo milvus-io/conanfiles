@@ -125,7 +125,7 @@ The build always runs under a hardcoded `milvus/ci` user/channel (never publishe
 | `version` | Yes | Package version (e.g. `1.0.0-28a2b48`) |
 | `conanfile_path` | Yes | Relative path to conanfile.py within the package dir (default: `all/conanfile.py`) |
 | `runner` | Yes | GitHub-hosted runner: `ubuntu-22.04`, `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15` or `macos-26` |
-| `compiler` | Yes | Toolchain: `runner-native`, `gcc-16` or `clang-23` (default: `runner-native`) |
+| `compiler` | Yes | Toolchain: `runner-native`, `gcc-11`, `gcc-12`, `gcc-13`, `gcc-14`, `gcc-15`, `gcc-16`, `clang-15`, `clang-16`, `clang-17`, `clang-19`, `clang-21`, `clang-22` or `clang-23` (default: `runner-native`) |
 | `source` | Yes | Recipe source: `conanfiles` (local recipes, default) or `conancenter` (build a ConanCenter package directly) |
 | `extra_options` | No | Extra conan options (default: `-s compiler.cppstd=20 -s:b compiler.cppstd=20 -c tools.system.package_manager:mode=install`) |
 
@@ -141,21 +141,22 @@ The build always runs under a hardcoded `milvus/ci` user/channel (never publishe
 | Compiler | Behavior |
 |---|---|
 | `runner-native` | Uses `conan profile detect` from the selected runner for compiler/compiler version/libcxx. Recommended for `ubuntu-24.04-arm` and `macos-15`; add `-s compiler.cppstd=<std>` in `extra_options` when a recipe needs a different C++ standard. On `ubuntu-22.04` this is gcc-11, matching the repo's production settings. |
-| `gcc-16` / `clang-23` | Installs the requested toolchain and uses Conan 2.33.0 (the first release whose bundled settings support both gcc 16 and clang 23). |
+| `gcc-11` | Linux only: installs gcc-11/g++-11 (present in the ubuntu-22.04/24.04 apt repos; ubuntu-toolchain-r/test PPA otherwise) and builds with `--settings-mode custom --compiler gcc --compiler-version 11 --libcxx libstdc++11`, keeping the system libc headers. |
+| `gcc-12` .. `gcc-16` / `clang-15` .. `clang-23` | Installs the requested toolchain (distro apt → ubuntu-toolchain-r/test PPA → Homebrew-on-Linux fallback for gcc; apt.llvm.org for Linux clang; Homebrew llvm@N for macOS clang) and builds with `--settings-mode custom`, using Conan 2.33.0 (the first release whose bundled settings support gcc 16 and clang 23). |
 
 **Custom toolchains:**
 
-| OS | gcc-16 | clang-23 |
+| OS | gcc (11-16) | clang (15-23) |
 |---|---|---|
-| Ubuntu | Homebrew-on-Linux (`gcc@16`) | apt.llvm.org (`clang-23`) |
-| macOS | Homebrew (`gcc@16`) | Homebrew (`llvm@23`) |
+| Ubuntu | distro apt (gcc-11/12) → ubuntu-toolchain-r/test PPA (gcc-13/14) → Homebrew-on-Linux (`gcc@15`/`gcc@16`) | apt.llvm.org (`clang-15`..`clang-23`) |
+| macOS | Homebrew (`gcc@11`..`gcc@16`) | Homebrew (`llvm@15`..`llvm@23`) |
 
 **Job: `try-build`**
 
 | Step | Command | Description |
 |---|---|---|
-| Install Conan and dependencies | `python -m pip install conan==2.25.1 pyyaml` / `conan==2.33.0` | Conan 2.25.1 for native compilers, 2.33.0 for gcc-16/clang-23; then detect the runner profile |
-| Install toolchain | — | Installs gcc-16/clang-23 when selected |
+| Install Conan and dependencies | `python -m pip install conan==2.33.0 pyyaml` | Conan 2.33.0 (first release whose bundled settings support gcc 16 and clang 23; its settings cover gcc 11-16 and clang 15-23), then detect the runner profile |
+| Install toolchain | — | Installs the requested gcc/clang toolchain when a non-native compiler is selected |
 | Try build | `./scripts/build-and-push.sh --user-channel milvus/ci --settings-mode <mode> --repository testing --no-upload` | Builds the local recipe through the standard script but skips Artifactory upload |
 
 **Example inputs for `milvus-common`:**
