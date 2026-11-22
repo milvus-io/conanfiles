@@ -1,6 +1,8 @@
 from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.files import get, copy, rm, rmdir, replace_in_file
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
+from conan.tools.scm import Version
 import os
 
 #required_conan_version = ">=2.1"
@@ -31,6 +33,23 @@ class LibavrocppConan(ConanFile):
     def configure(self):
         if self.options.shared:
             self.options.rm_safe("fPIC")
+
+    def validate(self):
+        # Known boundary: the boost dependency resolves to boost/1.85.0
+        # (conancenter), which cannot build against the macOS 15 SDK with
+        # clang <= 16 — clang-15: <memory_resource> is missing from libc++ 15;
+        # clang-16: the dirent.h `dirfd` macro expands to a GNU statement
+        # expression that breaks boost/filesystem directory.cpp. clang-17+
+        # (macos-26) is clean. Declared as a boundary instead of leaving a
+        # confusing build failure so the try-build matrix reports it as expected.
+        if (self.settings.os == "Macos"
+                and str(self.settings.compiler) == "clang"
+                and Version(self.settings.compiler.version) <= "16"):
+            raise ConanInvalidConfiguration(
+                f"{self.ref} cannot build on macOS with clang <= 16: the boost/1.85.0 "
+                "dependency fails against the macOS 15 SDK (clang-15: <memory_resource> "
+                "missing; clang-16: dirent.h dirfd macro). Use clang-17+ (macos-26)."
+            )
 
     def layout(self):
         cmake_layout(self, src_folder="src")
