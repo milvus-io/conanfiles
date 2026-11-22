@@ -1,8 +1,10 @@
 import os
 
 from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
 from conan.tools.files import copy, get, rmdir
+from conan.tools.scm import Version
 
 required_conan_version = ">=1.53.0"
 
@@ -38,6 +40,22 @@ class LibbsonConan(ConanFile):
         # libbson is a pure C library: its package id must not depend on C++ settings.
         self.settings.rm_safe("compiler.cppstd")
         self.settings.rm_safe("compiler.libcxx")
+
+    def validate(self):
+        # Known boundary: on macOS arm64 the linker's macOS 15 SDK check rejects the
+        # produced arm64 dylib because its __DATA_CONST segment lacks SG_READ_ONLY.
+        # clang-15 triggers it; clang-16+ passes. Declared as a boundary instead of
+        # leaving a confusing build failure so the try-build matrix reports it as
+        # expected.
+        if (self.settings.os == "Macos"
+                and self.settings.arch == "armv8"
+                and str(self.settings.compiler) == "clang"
+                and Version(self.settings.compiler.version) == "15"):
+            raise ConanInvalidConfiguration(
+                f"{self.ref} cannot build on macOS arm64 with clang-15: the arm64 dylib "
+                "__DATA_CONST segment lacks SG_READ_ONLY (macOS 15 SDK linker check). "
+                "Use clang-16+."
+            )
 
     def layout(self):
         cmake_layout(self, src_folder="src")
