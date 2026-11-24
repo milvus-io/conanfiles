@@ -112,10 +112,28 @@ jobs:
           COMPILER_TYPE=${INPUT_COMPILER%%-*}      # gcc or clang
           COMPILER_VERSION=${INPUT_COMPILER##*-}  # e.g. 12, 16, 23
           BIN_DIR="$RUNNER_TEMP/toolchain-bin"
+          mkdir -p "$BIN_DIR"
           case "$RUNNER_OS/$COMPILER_TYPE" in
             macOS/clang)
               brew install "llvm@$COMPILER_VERSION"
-              echo "$(brew --prefix "llvm@$COMPILER_VERSION")/bin" >> "$GITHUB_PATH"
+              # Resolve the requested compiler to absolute paths. CC/CXX are
+              # honored before any PATH/name search, so nothing can silently
+              # drift to the runner default (CMake otherwise finds /usr/bin/c++
+              # = Apple clang first: its name search tries "c++" before
+              # "clang++", and Homebrew llvm is keg-only so /opt/homebrew/bin
+              # has no clang++ at all).
+              BREW_LLVM="$(brew --prefix "llvm@$COMPILER_VERSION")"
+              CC="$BREW_LLVM/bin/clang"
+              CXX="$BREW_LLVM/bin/clang++"
+              # Build tools that ignore CC/CXX and invoke clang/clang++/cc/c++
+              # by name (b2, meson, autoconf, some CMake internals) must also
+              # hit the requested toolchain, so expose it under every common
+              # name in a prepended BIN_DIR instead of relying on PATH order.
+              ln -sf "$CC"  "$BIN_DIR/clang"
+              ln -sf "$CXX" "$BIN_DIR/clang++"
+              ln -sf "$CC"  "$BIN_DIR/cc"
+              ln -sf "$CXX" "$BIN_DIR/c++"
+              echo "$BIN_DIR" >> "$GITHUB_PATH"
               # Export the macOS SDK so compilers invoked without an explicit
               # -isysroot (e.g. Boost.Build/b2, raw autotools) can still find
               # the system headers. Old clang (e.g. 15.0.7) cannot auto-detect
@@ -123,10 +141,14 @@ jobs:
               echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
               ;;
             macOS/gcc)
+              BREW_GCC="$(brew --prefix "gcc@$COMPILER_VERSION")"
               brew install "gcc@$COMPILER_VERSION"
-              mkdir -p "$BIN_DIR"
-              ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
-              ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
+              CC="$BREW_GCC/bin/gcc-$COMPILER_VERSION"
+              CXX="$BREW_GCC/bin/g++-$COMPILER_VERSION"
+              ln -sf "$CC"  "$BIN_DIR/gcc"
+              ln -sf "$CXX" "$BIN_DIR/g++"
+              ln -sf "$CC"  "$BIN_DIR/cc"
+              ln -sf "$CXX" "$BIN_DIR/c++"
               echo "$BIN_DIR" >> "$GITHUB_PATH"
               # Same rationale as macOS/clang: let gcc reach the SDK headers.
               echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
@@ -135,9 +157,12 @@ jobs:
               wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
               chmod +x /tmp/llvm.sh
               sudo /tmp/llvm.sh "$COMPILER_VERSION"
-              mkdir -p "$BIN_DIR"
-              ln -sf "/usr/bin/clang-$COMPILER_VERSION" "$BIN_DIR/clang"
-              ln -sf "/usr/bin/clang++-$COMPILER_VERSION" "$BIN_DIR/clang++"
+              CC="/usr/bin/clang-$COMPILER_VERSION"
+              CXX="/usr/bin/clang++-$COMPILER_VERSION"
+              ln -sf "$CC"  "$BIN_DIR/clang"
+              ln -sf "$CXX" "$BIN_DIR/clang++"
+              ln -sf "$CC"  "$BIN_DIR/cc"
+              ln -sf "$CXX" "$BIN_DIR/c++"
               echo "$BIN_DIR" >> "$GITHUB_PATH"
               ;;
             Linux/gcc)
@@ -148,11 +173,9 @@ jobs:
               # (strlcat/strlcpy=yes) and links of C23-redirected symbols
               # (__isoc23_strtol) against the older system libc.
               sudo apt-get update
+              GCC_BIN=""
               if sudo apt-get install -y --no-install-recommends "gcc-$COMPILER_VERSION" "g++-$COMPILER_VERSION"; then
-                mkdir -p "$BIN_DIR"
-                ln -sf "/usr/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
-                ln -sf "/usr/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
-                echo "$BIN_DIR" >> "$GITHUB_PATH"
+                GCC_BIN="/usr/bin"
               elif sudo apt-get install -y --no-install-recommends software-properties-common \
                 && sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test \
                 && sudo apt-get update \
@@ -160,10 +183,7 @@ jobs:
                 # The Ubuntu toolchain PPA ships a distro-glibc-consistent gcc
                 # (e.g. gcc-13 on ubuntu-22.04, where the distro apt lacks it),
                 # so the build keeps using the system libc headers.
-                mkdir -p "$BIN_DIR"
-                ln -sf "/usr/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
-                ln -sf "/usr/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
-                echo "$BIN_DIR" >> "$GITHUB_PATH"
+                GCC_BIN="/usr/bin"
               else
                 # Fall back to Homebrew for versions not packaged by the distro
                 # or the toolchain PPA (e.g. gcc-15/16 on ubuntu-22.04/24.04).
@@ -172,40 +192,63 @@ jobs:
                 NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
                 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
                 brew install "gcc@$COMPILER_VERSION"
-                mkdir -p "$BIN_DIR"
-                ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/gcc-$COMPILER_VERSION" "$BIN_DIR/gcc"
-                ln -sf "$(brew --prefix "gcc@$COMPILER_VERSION")/bin/g++-$COMPILER_VERSION" "$BIN_DIR/g++"
+                GCC_BIN="$(brew --prefix "gcc@$COMPILER_VERSION")/bin"
                 # Newer GCC emits .base64 pseudo-ops that need binutils >= 2.43;
                 # the runner's system as is older, so prefer the binutils bundled
                 # with Homebrew gcc.
                 echo "$(brew --prefix binutils)/bin" >> "$GITHUB_PATH"
-                echo "$BIN_DIR" >> "$GITHUB_PATH"
               fi
+              CC="$GCC_BIN/gcc-$COMPILER_VERSION"
+              CXX="$GCC_BIN/g++-$COMPILER_VERSION"
+              ln -sf "$CC"  "$BIN_DIR/gcc"
+              ln -sf "$CXX" "$BIN_DIR/g++"
+              ln -sf "$CC"  "$BIN_DIR/cc"
+              ln -sf "$CXX" "$BIN_DIR/c++"
+              echo "$BIN_DIR" >> "$GITHUB_PATH"
               ;;
             *)
               echo "Unsupported OS/compiler combination: $RUNNER_OS/$INPUT_COMPILER" >&2
               exit 1
               ;;
           esac
+          # Absolute paths defeat every name-resolution path: CMake honors
+          # CC/CXX env before its "cc"/"c++" name search, and name-calling
+          # tools hit the BIN_DIR symlinks prepended above.
+          echo "CC=$CC" >> "$GITHUB_ENV"
+          echo "CXX=$CXX" >> "$GITHUB_ENV"
 
-      - name: Export CC/CXX for custom toolchains
+      - name: Verify toolchain matches the requested compiler
         if: github.event.inputs.compiler != 'runner-native'
         env:
           INPUT_COMPILER: ${{ github.event.inputs.compiler }}
         run: |
           set -euo pipefail
-          # Force CC/CXX so build systems that probe the environment (e.g. ICU's
-          # autotools configure, which prefers a preinstalled clang when CC is
-          # unset) honor the requested toolchain instead of drifting to a
-          # different compiler whose headers mismatch the Conan settings.
-          COMPILER_TYPE=${INPUT_COMPILER%%-*}
-          if [ "$COMPILER_TYPE" = "gcc" ]; then
-            echo "CC=gcc" >> "$GITHUB_ENV"
-            echo "CXX=g++" >> "$GITHUB_ENV"
-          else
-            echo "CC=clang" >> "$GITHUB_ENV"
-            echo "CXX=clang++" >> "$GITHUB_ENV"
-          fi
+          COMPILER_VERSION=${INPUT_COMPILER##*-}
+
+          for TOOL in "$CC" "$CXX"; do
+            if [ ! -x "$TOOL" ]; then
+              echo "::error::$INPUT_COMPILER: resolved compiler '$TOOL' is not executable" >&2
+              exit 1
+            fi
+          done
+
+          # Fail fast when the resolved compiler's reported major version does
+          # not match the requested one. This is the tripwire for the class of
+          # bug where the build silently used the runner default compiler
+          # while the Conan profile claimed the requested version.
+          check_major_version() {
+            local tool="$1" name="$2" line ver major
+            line="$("$tool" --version 2>&1 | head -n 1)"
+            echo "::notice::$name=$tool ($line)"
+            ver="$(grep -oE '[0-9]+(\.[0-9]+)+' <<<"$line" | tail -n 1)"
+            major="${ver%%.*}"
+            if [ "$major" != "$COMPILER_VERSION" ]; then
+              echo "::error::$name='$tool' reported '$line' but compiler '$INPUT_COMPILER' requires major version $COMPILER_VERSION" >&2
+              exit 1
+            fi
+          }
+          check_major_version "$CC"  "CC"
+          check_major_version "$CXX" "CXX"
 
       - name: Compute Conan compiler settings
         if: github.event.inputs.compiler != 'runner-native'
