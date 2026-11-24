@@ -63,5 +63,10 @@ sources:
     url: "https://github.com/fmtlib/fmt/releases/download/5.3.0/fmt-5.3.0.zip"
     sha256: "4c0741e10183f75d7d6f730b8708a99b329b2f942dad5a9da3385ab92bb4a15c"
 patches:
+  "11.2.0":
+    # Backport of the upstream fmt 12.0.0 fix: format.h called unqualified
+    # malloc/free inside a template without including <cstdlib>; clang 23
+    # enforces two-phase name lookup and rejects it at template definition.
+    - patch_file: "patches/clang23-qualify-malloc-free.patch"
   "5.3.0":
     - patch_file: "patches/fix-install-5.3.0.patch"
