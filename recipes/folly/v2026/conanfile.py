@@ -221,6 +221,26 @@ class FollyConan(ConanFile):
         deps.generate()
 
     def _patch_sources(self):
+        # Backport the upstream fix (facebook/folly commit 97d5b31d25,
+        # 2026-09-15): folly/result/epitaph.{h,cpp} use std::min/std::max and
+        # std::vector without including <algorithm>/<vector>. They compiled
+        # only while libc++/libstdc++ leaked those headers in transitively;
+        # clang-23 (new libc++) no longer does, failing with "no member named
+        # 'vector' in namespace 'std'". Adding the includes is a no-op for
+        # older toolchains, so it is safe across the whole gcc-11..16 /
+        # clang-15..23 validation range.
+        replace_in_file(
+            self,
+            os.path.join(self.source_folder, "folly", "result", "epitaph.cpp"),
+            "#include <folly/result/epitaph.h>\n\n#include <folly/Portability.h> // FOLLY_HAS_RESULT",
+            "#include <folly/result/epitaph.h>\n\n#include <vector>\n\n#include <folly/Portability.h> // FOLLY_HAS_RESULT",
+        )
+        replace_in_file(
+            self,
+            os.path.join(self.source_folder, "folly", "result", "epitaph.h"),
+            "#pragma once\n\n#include <cstddef>",
+            "#pragma once\n\n#include <algorithm>\n#include <cstddef>",
+        )
         # Async exception tracing requires frame pointers in every caller.
         # Keep its automatic registration out of the default shared library.
         replace_in_file(
