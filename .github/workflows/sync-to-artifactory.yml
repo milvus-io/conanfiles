@@ -31,7 +31,7 @@ jobs:
 
       - name: Install Conan
         run: |
-          pip install --user conan==2.25.1
+          pip install --user conan==2.33.0
           conan --version
           conan profile detect
 
