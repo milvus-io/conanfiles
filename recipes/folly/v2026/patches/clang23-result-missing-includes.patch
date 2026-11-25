@@ -1,0 +1,200 @@
+--- a/folly/result/coded_rich_error.h
++++ b/folly/result/coded_rich_error.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <utility>
+ #include <folly/result/rich_error.h>
+ #include <folly/result/rich_error_base.h>
+ #include <folly/result/rich_error_code.h>
+--- a/folly/result/detail/result_or_unwind.h
++++ b/folly/result/detail/result_or_unwind.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <utility>
+ #include <folly/CppAttributes.h>
+ #include <folly/coro/Error.h>
+ #include <folly/lang/MustUseImmediately.h>
+--- a/folly/result/detail/result_promise.h
++++ b/folly/result/detail/result_promise.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <utility>
+ #include <folly/Utility.h>
+ #include <folly/coro/Coroutine.h> // delete with clang-15 support
+ #include <folly/result/result.h>
+--- a/folly/result/detail/rich_exception_ptr_storage.h
++++ b/folly/result/detail/rich_exception_ptr_storage.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <exception>
+ #include <folly/Portability.h> // FOLLY_HAS_RESULT
+ #include <folly/Traits.h> // vtag_t
+ #include <folly/result/detail/immortal_exception_storage.h>
+--- a/folly/result/epitaph.cpp
++++ b/folly/result/epitaph.cpp
+@@ -14,6 +14,7 @@
+  * limitations under the License.
+  */
+ 
++#include <vector>
+ #include <folly/result/epitaph.h>
+ 
+ #include <folly/Portability.h> // FOLLY_HAS_RESULT
+--- a/folly/result/epitaph.h
++++ b/folly/result/epitaph.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <algorithm>
+ #include <cstddef>
+ #include <cstdint>
+ #include <memory>
+--- a/folly/result/nestable_coded_rich_error.h
++++ b/folly/result/nestable_coded_rich_error.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <utility>
+ #include <folly/result/coded_rich_error.h>
+ #include <folly/result/rich_error.h>
+ #include <folly/result/rich_error_base.h>
+--- a/folly/result/or_unwind_epitaph.h
++++ b/folly/result/or_unwind_epitaph.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <utility>
+ #include <folly/result/coro.h>
+ #include <folly/result/epitaph.h>
+ 
+--- a/folly/result/result.cpp
++++ b/folly/result/result.cpp
+@@ -14,6 +14,7 @@
+  * limitations under the License.
+  */
+ 
++#include <exception>
+ #include <folly/result/result.h>
+ 
+ #include <ostream>
+--- a/folly/result/result.h
++++ b/folly/result/result.h
+@@ -16,6 +16,9 @@
+ 
+ #pragma once
+ 
++#include <exception>
++#include <functional>
++#include <utility>
+ #include <folly/ExceptionWrapper.h>
+ #include <folly/Expected.h>
+ #include <folly/OperationCancelled.h>
+--- a/folly/result/rich_error.h
++++ b/folly/result/rich_error.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <exception>
+ #include <folly/Portability.h> // FOLLY_HAS_RESULT
+ #include <folly/lang/Exception.h>
+ #include <folly/lang/Pretty.h>
+--- a/folly/result/rich_error_base.h
++++ b/folly/result/rich_error_base.h
+@@ -16,6 +16,8 @@
+ 
+ #pragma once
+ 
++#include <cstddef>
++#include <exception>
+ #include <folly/CppAttributes.h>
+ #include <folly/Portability.h> // FOLLY_HAS_RESULT
+ #include <folly/Traits.h>
+--- a/folly/result/rich_error_code.cpp
++++ b/folly/result/rich_error_code.cpp
+@@ -14,6 +14,7 @@
+  * limitations under the License.
+  */
+ 
++#include <exception>
+ #include <folly/result/rich_error_code.h>
+ 
+ #include <folly/lang/Exception.h>
+--- a/folly/result/rich_error_code.h
++++ b/folly/result/rich_error_code.h
+@@ -16,6 +16,10 @@
+ 
+ #pragma once
+ 
++#include <concepts>
++#include <cstdint>
++#include <exception>
++#include <type_traits>
+ #include <optional>
+ #include <fmt/core.h>
+ 
+--- a/folly/result/rich_exception_ptr.cpp
++++ b/folly/result/rich_exception_ptr.cpp
+@@ -14,6 +14,7 @@
+  * limitations under the License.
+  */
+ 
++#include <exception>
+ #include <folly/result/rich_exception_ptr.h>
+ 
+ #include <ostream>
+--- a/folly/result/rich_exception_ptr.h
++++ b/folly/result/rich_exception_ptr.h
+@@ -16,6 +16,9 @@
+ 
+ #pragma once
+ 
++#include <exception>
++#include <typeinfo>
++#include <utility>
+ #include <folly/Portability.h> // FOLLY_HAS_RESULT
+ #include <folly/lang/Exception.h>
+ #include <folly/result/detail/rich_exception_ptr_storage.h>
+--- a/folly/result/rich_msg.h
++++ b/folly/result/rich_msg.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <utility>
+ #include <fmt/format.h>
+ 
+ #include <folly/Utility.h>
+--- a/folly/result/try.h
++++ b/folly/result/try.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <utility>
+ #include <folly/Try.h>
+ #include <folly/result/result.h>
+ 
+--- a/folly/result/value_only_result.h
++++ b/folly/result/value_only_result.h
+@@ -17,6 +17,9 @@
+ #pragma once
+ 
+ // Can make lighter: only shares `result_ref_wrap`, `Align.h`
++#include <functional>
++#include <utility>
++
+ #include <folly/result/result.h>
+ 
+ /// See `result.h` for detailed API docs.
