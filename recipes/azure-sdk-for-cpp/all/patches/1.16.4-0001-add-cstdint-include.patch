@@ -1,0 +1,15 @@
+diff --git a/sdk/storage/azure-storage-common/inc/azure/storage/common/internal/structured_message_helper.hpp b/sdk/storage/azure-storage-common/inc/azure/storage/common/internal/structured_message_helper.hpp
+--- a/sdk/storage/azure-storage-common/inc/azure/storage/common/internal/structured_message_helper.hpp
++++ b/sdk/storage/azure-storage-common/inc/azure/storage/common/internal/structured_message_helper.hpp
+@@ -6,4 +6,5 @@
+ #include <algorithm>
+ #include <functional>
+ #include <memory>
+ #include <vector>
++#include <cstdint>
+diff --git a/sdk/storage/azure-storage-common/src/structured_message_helper.cpp b/sdk/storage/azure-storage-common/src/structured_message_helper.cpp
+--- a/sdk/storage/azure-storage-common/src/structured_message_helper.cpp
++++ b/sdk/storage/azure-storage-common/src/structured_message_helper.cpp
+@@ -6,1 +6,2 @@
+ #include <azure/core/azure_assert.hpp>
++#include <cstdint>
