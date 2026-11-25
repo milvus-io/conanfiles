@@ -4,7 +4,7 @@ from conan.tools.apple import is_apple_os
 from conan.tools.build import check_min_cppstd, cross_building
 from conan.tools.env import VirtualBuildEnv
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
-from conan.tools.files import get, copy, rmdir, replace_in_file, save, rm
+from conan.tools.files import apply_conandata_patches, export_conandata_patches, get, copy, rmdir, replace_in_file, save, rm
 from conan.tools.microsoft import is_msvc, is_msvc_static_runtime
 from conan.tools.scm import Version
 import os
@@ -51,6 +51,7 @@ class FollyConan(ConanFile):
 
     def export_sources(self):
         copy(self, "conan_deps.cmake", self.recipe_folder, os.path.join(self.export_sources_folder, "src"))
+        export_conandata_patches(self)
 
     def config_options(self):
         if self.settings.os == "Windows":
@@ -221,26 +222,6 @@ class FollyConan(ConanFile):
         deps.generate()
 
     def _patch_sources(self):
-        # Backport the upstream fix (facebook/folly commit 97d5b31d25,
-        # 2026-09-15): folly/result/epitaph.{h,cpp} use std::min/std::max and
-        # std::vector without including <algorithm>/<vector>. They compiled
-        # only while libc++/libstdc++ leaked those headers in transitively;
-        # clang-23 (new libc++) no longer does, failing with "no member named
-        # 'vector' in namespace 'std'". Adding the includes is a no-op for
-        # older toolchains, so it is safe across the whole gcc-11..16 /
-        # clang-15..23 validation range.
-        replace_in_file(
-            self,
-            os.path.join(self.source_folder, "folly", "result", "epitaph.cpp"),
-            "#include <folly/result/epitaph.h>\n\n#include <folly/Portability.h> // FOLLY_HAS_RESULT",
-            "#include <folly/result/epitaph.h>\n\n#include <vector>\n\n#include <folly/Portability.h> // FOLLY_HAS_RESULT",
-        )
-        replace_in_file(
-            self,
-            os.path.join(self.source_folder, "folly", "result", "epitaph.h"),
-            "#pragma once\n\n#include <cstddef>",
-            "#pragma once\n\n#include <algorithm>\n#include <cstddef>",
-        )
         # Async exception tracing requires frame pointers in every caller.
         # Keep its automatic registration out of the default shared library.
         replace_in_file(
@@ -270,6 +251,7 @@ class FollyConan(ConanFile):
         )
 
     def build(self):
+        apply_conandata_patches(self)
         self._patch_sources()
         cmake = CMake(self)
         cmake.configure()

@@ -2,3 +2,13 @@ sources:
   "2026.04.20.00":
     sha256: 14e9ddb14ce4a91f1e53e06c327e72a56bab15fe3edb79c94cf6fba60c3091f8
     url: https://github.com/facebook/folly/releases/download/v2026.04.20.00/folly-v2026.04.20.00.tar.gz
+patches:
+  "2026.04.20.00":
+    # Backport the upstream include fixes for folly/result (Meta's buck2 build
+    # auto-includes standard headers; the open-source build does not). Without
+    # them the new libc++ in clang-23 fails on std::vector / std::exception_ptr
+    # / std::min. Adding includes is a no-op for older toolchains, safe across
+    # the whole gcc-11..16 / clang-15..23 validation range.
+    # Sources: facebook/folly 97d5b31d25 (epitaph) + 751473ace4
+    # (rich_error_code.h) + missing-include sweep over folly/result.
+    - patch_file: "patches/clang23-result-missing-includes.patch"
