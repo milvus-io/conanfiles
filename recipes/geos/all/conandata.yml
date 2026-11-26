@@ -2,3 +2,8 @@ sources:
   "3.12.0":
     url: "https://github.com/libgeos/geos/releases/download/3.12.0/geos-3.12.0.tar.bz2"
     sha256: "d96db96011259178a35555a0f6d6e75a739e52a495a6b2aa5efb3d75390fbc39"
+patches:
+  "3.12.0":
+    - patch_file: "patches/3.12.0-0001-add-type_traits-include.patch"
+      patch_description: "Add missing <type_traits> include in CoordinateSequence.h for clang-23 compatibility."
+      patch_type: "conan"
