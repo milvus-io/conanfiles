@@ -58,11 +58,11 @@ class MilvusCommonConan(ConanFile):
 
     def requirements(self):
         self.requires("glog/0.7.1#a306e61d7b8311db8cb148ad62c48030", transitive_headers=True, transitive_libs=True)
-        self.requires("fmt/11.2.0#eb98daa559c7c59d591f4720dde4cd5c", transitive_headers=True, transitive_libs=True, force=True)
+        self.requires("fmt/11.2.0#9e6db8ce0c09fbec6b24e461cf520c53", transitive_headers=True, transitive_libs=True, force=True)
         self.requires("prometheus-cpp/1.2.4#0918d66c13f97acb7809759f9de49b3f", transitive_headers=True, transitive_libs=True)
         self.requires("gflags/2.2.2#7671803f1dc19354cc90bd32874dcfda", transitive_headers=False, transitive_libs=False)
         self.requires("opentelemetry-cpp/1.23.0@milvus/dev#11bc565ec6e82910ae8f7471da756720", transitive_headers=True, transitive_libs=True)
-        self.requires("folly/2026.04.20.00@milvus/dev#06852bea5b6449f0c4eb0df002b5779c", transitive_headers=True, transitive_libs=True)
+        self.requires("folly/2026.04.20.00@milvus/dev#bb88f7ffd53457e8fa8f4516eaec6c60", transitive_headers=True, transitive_libs=True)
         self.requires("grpc/1.67.1@milvus/dev#efeaa484b59bffaa579004d5e82ec4fd", transitive_headers=False, transitive_libs=False, override=True)
         self.requires("abseil/20250127.0#481edcc75deb0efb16500f511f0f0a1c", transitive_headers=False, transitive_libs=False, override=True)
         self.requires("xz_utils/5.4.5#fc4e36861e0a47ecd4a40a00e6d29ac8", transitive_headers=False, transitive_libs=False, override=True)
