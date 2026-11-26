@@ -1,0 +1,31 @@
+--- a/lang/c++/include/avro/buffer/Buffer.hh
++++ b/lang/c++/include/avro/buffer/Buffer.hh
+@@ -22,6 +22,7 @@
+ #ifndef _WIN32
+ #include <sys/uio.h>
+ #endif
++#include <type_traits>
+ #include <utility>
+ #include <vector>
+ 
+--- a/lang/c++/include/avro/buffer/BufferReader.hh
++++ b/lang/c++/include/avro/buffer/BufferReader.hh
+@@ -20,6 +20,7 @@
+ #define avro_BufferReader_hh__
+ 
+ #include "Buffer.hh"
++#include <cstring>
+ #include <type_traits>
+ 
+ #ifdef min
+--- a/lang/c++/include/avro/buffer/detail/BufferDetail.hh
++++ b/lang/c++/include/avro/buffer/detail/BufferDetail.hh
+@@ -25,6 +25,8 @@
+ #include <cassert>
+ #include <deque>
+ #include <exception>
++#include <cstring>
++#include <iterator>
+ #include <functional>
+ #include <memory>
+ #include <utility>

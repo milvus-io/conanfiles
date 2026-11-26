@@ -2,3 +2,9 @@ sources:
   "1.12.1.1":
     url: "https://archive.apache.org/dist/avro/avro-1.12.1/avro-src-1.12.1.tar.gz"
     sha256: "268e47c0850df04f952ea6fdfc3b12a8d0042124354bff6c0239be0b70016d2e"
+
+patches:
+  "1.12.1.1":
+    - patch_file: "patches/1.12.1.1-0001-add-missing-includes.patch"
+      patch_description: "Add missing <cstring>/<iterator>/<type_traits> includes for clang-23 libc++."
+      patch_type: "conan"
