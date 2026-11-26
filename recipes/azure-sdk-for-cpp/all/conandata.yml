@@ -16,3 +16,6 @@ patches:
     - patch_file: "patches/1.16.4-0001-add-cstdint-include.patch"
       patch_description: "Add missing <cstdint> include so fixed-width types resolve under gcc-15."
       patch_type: "conan"
+    - patch_file: "patches/1.16.4-0002-add-iterator-include.patch"
+      patch_description: "Add missing <iterator> include to share_responses.cpp; clang-23's libc++ no longer leaks it transitively."
+      patch_type: "conan"
