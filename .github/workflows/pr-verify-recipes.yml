@@ -8,6 +8,10 @@ on:
       - 'recipes/**'
       - 'scripts/build-and-push.sh'
       - 'scripts/pr-detection.py'
+      - 'scripts/update-recipe-from-dispatch.py'
+      - 'scripts/sdk_grpc_zstd.py'
+      - 'scripts/templates/sdk_grpc_zstd_conanfile.py'
+      - 'scripts/tests/test_sdk_grpc_zstd.py'
       - '.github/workflows/pr-verify-recipes.yml'
 
 permissions:
@@ -41,6 +45,9 @@ jobs:
           python -m pip install conan==2.33.0 pyyaml
           conan --version
           conan profile detect
+
+      - name: Test SDK release dispatch
+        run: python3 -m unittest discover -s scripts/tests
 
       - name: Detect verification C++ standard
         id: cppstd

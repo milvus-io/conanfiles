@@ -271,6 +271,10 @@ fi
 BUILD_GRAPH=$(mktemp /tmp/conan-graph-XXXXXX.json)
 trap "rm -f $BUILD_GRAPH ${BUILD_GRAPH%.json}-pkglist.json" EXIT
 
+if [[ "$PACKAGE" == "milvus-sdk-cpp" && "$CONANFILE_PATH" == "grpc-zstd-$VERSION/conanfile.py" ]]; then
+    python3 scripts/sdk_grpc_zstd.py "$(dirname "$RECIPE_PATH")" "$VERSION" "$REMOTE_NAME_PRODUCTION"
+fi
+
 conan create "$RECIPE_PATH" \
     --version="$VERSION" \
     --build=missing \

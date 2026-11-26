@@ -4,9 +4,13 @@ import os
 import re
 import sys
 import urllib.request
+from contextlib import nullcontext
+from tempfile import TemporaryFile
 from pathlib import Path
 
 import yaml
+
+import sdk_grpc_zstd
 
 
 RECIPE_SOURCES = {
@@ -65,22 +69,22 @@ folder = recipe["folder"]
 cppstd = recipe.get("cppstd", "20")
 url = recipe["url"].format(source_repo=SOURCE_REPO, tag=TAG, commit=COMMIT)
 config_path = Path("recipes", package, "config.yml")
-conandata_path = Path("recipes", package, folder, "conandata.yml")
-conanfile_path = Path("recipes", package, folder, "conanfile.py")
 
 
-for path in (config_path, conandata_path, conanfile_path):
-    if not path.is_file():
-        raise SystemExit(f"required recipe file does not exist: {path}")
-
-
-def download_sha256(source_url):
+def download_metadata(source_url):
     request = urllib.request.Request(source_url, headers={"User-Agent": "conanfiles-recipe-updater"})
     sha256 = hashlib.sha256()
-    with urllib.request.urlopen(request, timeout=120) as response:
+    sdk_archive = TemporaryFile() if package == "milvus-sdk-cpp" else nullcontext()
+    with sdk_archive as archive, urllib.request.urlopen(request, timeout=120) as response:
         while chunk := response.read(1024 * 1024):
             sha256.update(chunk)
-    return sha256.hexdigest()
+            if archive is not None:
+                archive.write(chunk)
+        release = None
+        if archive is not None:
+            archive.seek(0)
+            release = sdk_grpc_zstd.read_release(archive, COMMIT)
+    return sha256.hexdigest(), release
 
 
 def load_yaml(path):
@@ -105,9 +109,23 @@ def insert_version_block(path, section, version, lines):
     path.write_text(text.replace(marker, marker + block, 1))
 
 
-sha256 = download_sha256(url)
+sha256, sdk_release = download_metadata(url)
+if sdk_release:
+    folder = f"grpc-zstd-{recipe_version}"
+if not config_path.is_file():
+    raise SystemExit(f"required recipe file does not exist: {config_path}")
 config = load_yaml(config_path)
+recipe_dir = config_path.parent / folder
+if sdk_release and recipe_version not in config.get("versions", {}):
+    sdk_grpc_zstd.create_recipe(config_path.parent, recipe_version, sdk_release)
+conandata_path = recipe_dir / "conandata.yml"
+conanfile_path = recipe_dir / "conanfile.py"
+for path in (conandata_path, conanfile_path):
+    if not path.is_file():
+        raise SystemExit(f"required recipe file does not exist: {path}")
 conandata = load_yaml(conandata_path)
+if sdk_release and conandata.get("grpc_zstd", {}).get(recipe_version) != sdk_release[0]:
+    raise SystemExit(f"gRPC recipe pin for {package}/{recipe_version} does not match the tag")
 versions = config.get("versions") or {}
 sources = conandata.get("sources") or {}
 changed = True
