@@ -1,5 +1,5 @@
 from conan import ConanFile
-from conan.tools.files import get, copy, rm, rmdir, replace_in_file
+from conan.tools.files import apply_conandata_patches, export_conandata_patches, get, copy, rm, rmdir, replace_in_file
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 import os
 
@@ -42,8 +42,12 @@ class LibavrocppConan(ConanFile):
         self.requires("fmt/[>=11 <13]", transitive_headers=True)
         self.requires("zlib/[>=1.3.1 <2]")
 
+    def export_sources(self):
+        export_conandata_patches(self)
+
     def source(self):
         get(self, **self.conan_data["sources"][self.version], strip_root=True)
+        apply_conandata_patches(self)
         replace_in_file(self, os.path.join(self.source_folder, "lang", "c++", "CMakeLists.txt"),
                         "-Werror", "")
 
