@@ -447,6 +447,15 @@ class AwsSdkCppConan(ConanFile):
         tc.cache_variables["ENABLE_UNITY_BUILD"] = True
         tc.cache_variables["ENABLE_TESTING"] = False
         tc.cache_variables["AUTORUN_UNIT_TESTS"] = False
+        # AWS treats compiler warnings as errors by default
+        # (AWS_SDK_WARNINGS_ARE_ERRORS=ON). clang-23's more precise
+        # unused-but-set-variable analysis trips on
+        # s_InitCleanupOpenSSLFlag in aws-cpp-sdk-core (Factories.cpp),
+        # failing the build on "new or uncommon compilers" -- the exact
+        # scenario this official option documents. Warnings stay warnings;
+        # real errors still fail the build. No-op for older toolchains
+        # that never triggered the warning in the first place.
+        tc.cache_variables["AWS_SDK_WARNINGS_ARE_ERRORS"] = False
         tc.cache_variables["BUILD_DEPS"] = False
         if self.settings.os != "Windows":
             tc.cache_variables["ENABLE_OPENSSL_ENCRYPTION"] = True
