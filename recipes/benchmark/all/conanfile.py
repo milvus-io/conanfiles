@@ -74,6 +74,10 @@ class BenchmarkConan(ConanFile):
         if Version(self.version) >= "1.6.1":
             tc.variables["BENCHMARK_ENABLE_WERROR"] = False
             tc.variables["BENCHMARK_FORCE_WERROR"] = False
+            # clang-23 flags __COUNTER__ as a C2y extension in certain
+            # contexts; suppress explicitly since -Werror may be active
+            # from other flag sources.
+            tc.cache_variables["CMAKE_CXX_FLAGS_INIT"] = "-Wno-c2y-extensions"
         if self.settings.os != "Windows":
             if cross_building(self):
                 tc.variables["HAVE_STD_REGEX"] = False
