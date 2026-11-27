@@ -79,6 +79,13 @@ class RocksDBConan(ConanFile):
     def configure(self):
         if self.options.shared:
             self.options.rm_safe("fPIC")
+        # Several rocksdb headers (e.g. blob_file_meta.h, trace_record.h) use
+        # fixed-width types without including <cstdint>; newer libstdc++
+        # (gcc-16) no longer pulls it in transitively, so builds fail. Force
+        # <cstdint> into every TU via CXXFLAGS instead of patching headers
+        # one by one.
+        if not is_msvc(self):
+            self.conf.append("tools.build:cxxflags", "-include cstdint")
 
     def layout(self):
         cmake_layout(self, src_folder="src")
