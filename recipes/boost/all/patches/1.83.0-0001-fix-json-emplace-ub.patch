@@ -1,0 +1,78 @@
+diff --git a/boost/json/impl/value.ipp b/boost/json/impl/value.ipp
+--- a/boost/json/impl/value.ipp
++++ b/boost/json/impl/value.ipp
+@@ -352,4 +352,5 @@
+ emplace_string() noexcept
+ {
+-    return *::new(&str_) string(destroy());
++    storage_ptr sp = destroy();
++    return *::new(&str_) string(sp);
+ }
+@@ -359,4 +360,5 @@
+ emplace_array() noexcept
+ {
+-    return *::new(&arr_) array(destroy());
++    storage_ptr sp = destroy();
++    return *::new(&arr_) array(sp);
+ }
+@@ -366,4 +367,5 @@
+ emplace_object() noexcept
+ {
+-    return *::new(&obj_) object(destroy());
++    storage_ptr sp = destroy();
++    return *::new(&obj_) object(sp);
+ }
+diff --git a/boost/json/value.hpp b/boost/json/value.hpp
+--- a/boost/json/value.hpp
++++ b/boost/json/value.hpp
+@@ -1138,4 +1138,4 @@
+         {
+-            ::new(&sca_) scalar(
+-                destroy());
++            storage_ptr sp = destroy();
++            ::new(&sca_) scalar(sp);
+         }
+@@ -1172,4 +1172,4 @@
+         {
+-            ::new(&sca_) scalar(
+-                b, destroy());
++            storage_ptr sp = destroy();
++            ::new(&sca_) scalar(b, sp);
+         }
+@@ -1225,4 +1225,5 @@
+         {
+-            ::new(&sca_) scalar(static_cast<
+-                std::int64_t>(i), destroy());
++            storage_ptr sp = destroy();
++            ::new(&sca_) scalar(static_cast<
++                std::int64_t>(i), sp);
+         }
+@@ -1278,4 +1278,5 @@
+         {
+-            ::new(&sca_) scalar(static_cast<
+-                std::uint64_t>(u), destroy());
++            storage_ptr sp = destroy();
++            ::new(&sca_) scalar(static_cast<
++                std::uint64_t>(u), sp);
+         }
+@@ -1306,4 +1306,4 @@
+         {
+-            ::new(&sca_) scalar(
+-                d, destroy());
++            storage_ptr sp = destroy();
++            ::new(&sca_) scalar(d, sp);
+         }
+diff --git a/boost/json/value_ref.hpp b/boost/json/value_ref.hpp
+--- a/boost/json/value_ref.hpp
++++ b/boost/json/value_ref.hpp
+@@ -171,6 +171,10 @@
+         value_ref const&) = default;
+ 
+     /// Constructor
++    value_ref(
++        value_ref&&) = default;
++
++    /// Constructor
+ #ifdef BOOST_JSON_DOCS
+     value_ref(string_view s) noexcept;
+ #else

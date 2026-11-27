@@ -97,6 +97,10 @@ patches:
       patch_description: "Fix compilation on windows when NOMINMAX is not defined"
       patch_type: "official"
       patch_source: "https://github.com/boostorg/locale/pull/189"
+    - patch_file: "patches/1.83.0-0001-fix-json-emplace-ub.patch"
+      patch_description: "Fix gcc-15/16 dead store elimination / missing value_ref move ctor UB in boost::json (upstream boostorg/json #1157/#1160, cac6d9755280)"
+      patch_type: "official"
+      patch_source: "https://github.com/boostorg/json/pull/1160"
   "1.82.0":
     - patch_file: "patches/1.82.0-locale-iconv-library-option.patch"
       patch_description: "Optional flag to specify iconv from either libc of libiconv"
