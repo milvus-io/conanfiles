@@ -182,7 +182,12 @@ class ArrowConan(ConanFile):
         if self.options.with_grpc:
             self.requires("grpc/1.50.0")
         if self._requires_rapidjson():
-            self.requires("rapidjson/1.1.0")
+            # rapidjson 1.1.0's GenericStringRef::operator= assigns to a const
+            # member (length), which GCC >= 14 diagnoses via -Wtemplate-body at
+            # template parse time -> arrow fails to build on gcc-14/15/16 and
+            # clang-21+ (arrow_json/arrow_ipc TUs). cci.20230929 removes the
+            # copy-assignment (immutable type), matching conan-center-index.
+            self.requires("rapidjson/cci.20230929")
         if self.options.with_llvm:
             self.requires("llvm-core/13.0.0")
         if self.options.with_openssl:
