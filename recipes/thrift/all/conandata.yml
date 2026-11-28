@@ -36,6 +36,9 @@ patches:
     - patch_file: "patches/cmake-0.16.0.patch"
       patch_description: "use cci packages"
       patch_type: "conan"
+    - patch_file: "patches/0.17.0-0003-tenum-iterator-eq.patch"
+      patch_description: "add TEnumIterator operator== for libc++ range-insert (clang-21+)"
+      patch_type: "portability"
   "0.16.0":
     - patch_file: "patches/cmake-0.16.0.patch"
       patch_description: "use cci packages"
