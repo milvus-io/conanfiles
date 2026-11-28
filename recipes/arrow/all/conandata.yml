@@ -57,6 +57,10 @@ patches:
       patch_description: "Backport GH-48112 improve PLAIN BYTE_ARRAY data length estimate"
       patch_type: "backport"
       patch_source: "https://github.com/apache/arrow/pull/48113"
+    - patch_file: "patches/17.0.0-0003-vendored-date-libcpp-ostream.patch"
+      patch_description: "Disambiguate vendored datetime ostream operators against libc++ chrono (clang-17/macos-15)"
+      patch_type: "portability"
+      patch_source: "https://github.com/apache/arrow/pull/43094"
   "8.0.1":
     - patch_file: "patches/8.0.0-0005-install-utils.patch"
       patch_description: "enable utils installation"
