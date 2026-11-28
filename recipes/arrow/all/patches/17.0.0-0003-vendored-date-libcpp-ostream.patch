@@ -1,0 +1,60 @@
+diff --git a/cpp/src/arrow/vendored/datetime/date.h b/cpp/src/arrow/vendored/datetime/date.h
+--- a/cpp/src/arrow/vendored/datetime/date.h	2026-11-28
++++ b/cpp/src/arrow/vendored/datetime/date.h	2026-11-28
+@@ -4230,7 +4230,7 @@
+ std::basic_ostream<CharT, Traits>&
+ operator<<(std::basic_ostream<CharT, Traits>& os, const local_time<Duration>& ut)
+ {
+-    return (os << sys_time<Duration>{ut.time_since_epoch()});
++    return (date::operator<<(os, sys_time<Duration>{ut.time_since_epoch()}));
+ }
+ 
+ namespace detail
+diff --git a/cpp/src/arrow/vendored/datetime/tz.cpp b/cpp/src/arrow/vendored/datetime/tz.cpp
+--- a/cpp/src/arrow/vendored/datetime/tz.cpp	2026-11-28
++++ b/cpp/src/arrow/vendored/datetime/tz.cpp	2026-11-28
+@@ -2709,7 +2709,8 @@
+         os.width(8);
+         os << s.format_ << "   ";
+         os << s.until_year_ << ' ' << s.until_date_;
+-        os << "   " << s.until_utc_ << " UTC";
++        os << "   ";
++        date::operator<<(os, s.until_utc_) << " UTC";
+         os << "   " << s.until_std_ << " STD";
+         os << "   " << s.until_loc_;
+         os << "   " << make_time(s.initial_save_);
+@@ -2735,7 +2736,7 @@
+ operator<<(std::ostream& os, const leap_second& x)
+ {
+     using namespace date;
+-    return os << x.date_ << "  +";
++    return date::operator<<(os, x.date_) << "  +";
+ }
+ 
+ #if USE_OS_TZDB
+diff --git a/cpp/src/arrow/vendored/datetime/tz.h b/cpp/src/arrow/vendored/datetime/tz.h
+--- a/cpp/src/arrow/vendored/datetime/tz.h	2026-11-28
++++ b/cpp/src/arrow/vendored/datetime/tz.h	2026-11-28
+@@ -239,8 +239,8 @@
+        << i.first.abbrev << " and\n"
+        << local_seconds{i.second.begin.time_since_epoch()} + i.second.offset << ' '
+        << i.second.abbrev
+-       << " which are both equivalent to\n"
+-       << i.first.end << " UTC";
++       << " which are both equivalent to\n";
++    date::operator<<(os, i.first.end) << " UTC";
+     return os.str();
+ }
+ 
+diff --git a/cpp/src/arrow/vendored/datetime/tz_private.h b/cpp/src/arrow/vendored/datetime/tz_private.h
+--- a/cpp/src/arrow/vendored/datetime/tz_private.h	2026-11-28
++++ b/cpp/src/arrow/vendored/datetime/tz_private.h	2026-11-28
+@@ -292,7 +292,7 @@
+     operator<<(std::ostream& os, const transition& t)
+     {
+         using date::operator<<;
+-        os << t.timepoint << "Z ";
++        date::operator<<(os, t.timepoint) << "Z ";
+         if (t.info->offset >= std::chrono::seconds{0})
+             os << '+';
+         os << make_time(t.info->offset);
